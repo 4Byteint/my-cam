@@ -37,11 +37,11 @@ class contactArea():
         self.img_save(diff, "diff")
         diff = self._smooth(diff)
         self.img_save(diff, "smooth")
-        contours = self._contours(diff)
+        contours = self._contours(diff, sample_image)
 ##############################################################################################################
     # 儲存影像
     def img_save(self, img, filename):
-        print(img.dtype)
+        print("diss: ",img.dtype)
         img = (img * 255).astype(np.uint8)
         cv2.imwrite(f"{filename}_res.png", img)
     # 差分
@@ -62,15 +62,15 @@ class contactArea():
         diff_blur = cv2.filter2D(target, -1, kernel) # 平滑化
         return diff_blur
     # 提取輪廓
-    def _contours(self, target):
-        print(f"target min: {target.min()}, target max: {target.max()}")
+    def _contours(self, target, sample_image):
+        print(f"影像最小值: {target.min()}, 影像最大值: {target.max()}")
         mask = ((np.abs(target) > 0.025) * 255).astype(np.uint8) # 抓出變化的部分
         kernel = np.ones((16, 16), np.uint8)
         mask = cv2.erode(mask, kernel) # 侵蝕
         contours, _ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE) # 找輪廓
-        contours_img = cv2.drawContours(mask, contours, -1, (255, 255, 255), 1)  # 白色輪廓，線寬為1
+        
+        contours_img = cv2.drawContours(sample_image, contours, -1, (0, 0, 255), 1)  
         cv2.imwrite("contours_res.png", contours_img)
-        # print(f"mask min: {mask.min()}, mask max: {mask.max()}")
         return contours
     
 contact_area = contactArea(base=base_image)
