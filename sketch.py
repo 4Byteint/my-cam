@@ -8,17 +8,6 @@ base_image = cv2.imread(base_path)
 sample_image = cv2.imread(sample_path)
 
 ##############################################################################################################
-# resized = cv2.resize(diff, (640, 480))
-# denoised = cv2.medianBlur(resized, 3)  # 核大小可調，如 3、5、7
-# cv2.imwrite("denoised.png", denoised)
-# # 二值化再取輪廓
-# _, binary = cv2.threshold(diff, 30, 255, cv2.THRESH_BINARY)
-# cv2.imwrite("binary.png", binary)
-# contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-# original_image = sample_image.copy()
-# output = cv2.cvtColor(original_image, cv2.COLOR_GRAY2BGR)
-# cv2.drawContours(output, contours, -1, (0, 255, 0), 2)
-
 class contactArea():
     # 初始化 & 設定呼叫函數
     def __init__(
@@ -38,10 +27,29 @@ class contactArea():
         diff = self._smooth(diff)
         self.img_save(diff, "smooth")
         contours = self._contours(diff, sample_image)
-##############################################################################################################
+        # 如果無法計算出接觸面積，則拋出異常
+        if self._compute_contact_area(contours, self.contour_threshold) == None and self.real_time==False:
+            raise Exception("No contact area detected.")
+        if self._compute_contact_area(contours, self.contour_threshold) == None and self.real_time==True:
+            return None
+        else:
+            (
+                poly,
+                major_axis,
+                major_axis_end,
+                minor_axis,
+                minor_axis_end,
+                center,
+                theta,
+            ) = self._compute_contact_area(contours, self.contour_threshold)
+        if self.draw_poly:
+            self._draw_major_minor(
+                target, poly, major_axis, major_axis_end, minor_axis, minor_axis_end
+            )
+        return center, theta, (major_axis, major_axis_end), (minor_axis, minor_axis_end)
+        
     # 儲存影像
     def img_save(self, img, filename):
-        print("diss: ",img.dtype)
         img = (img * 255).astype(np.uint8)
         cv2.imwrite(f"{filename}_res.png", img)
     # 差分
@@ -63,15 +71,73 @@ class contactArea():
         return diff_blur
     # 提取輪廓
     def _contours(self, target, sample_image):
-        print(f"影像最小值: {target.min()}, 影像最大值: {target.max()}")
+        # print(f"影像最小值: {target.min()}, 影像最大值: {target.max()}")
         mask = ((np.abs(target) > 0.025) * 255).astype(np.uint8) # 抓出變化的部分
         kernel = np.ones((16, 16), np.uint8)
         mask = cv2.erode(mask, kernel) # 侵蝕
         contours, _ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE) # 找輪廓
-        
-        contours_img = cv2.drawContours(sample_image, contours, -1, (0, 0, 255), 1)  
+        # save contours
+        draw_image = sample_image.copy()
+        contours_img = cv2.drawContours(draw_image, contours, -1, (0, 0, 255), 1)  
         cv2.imwrite("contours_res.png", contours_img)
         return contours
     
+    def _draw_major_minor(
+        self,
+        target,
+        poly,
+        
+        major_axis,
+        major_axis_end,
+        minor_axis,
+        minor_axis_end,
+        lineThickness=2,
+    ):
+        # major_axis(red), minor_axis(green)
+        cv2.polylines(target, [poly], True, (255, 255, 255), lineThickness)
+        cv2.line(
+            target,
+            (int(major_axis_end[0]), int(major_axis_end[1])), 
+            (int(major_axis[0]), int(major_axis[1])), 
+            (0, 0, 255),
+            lineThickness,
+        )
+        cv2.line(
+            target,
+            (int(minor_axis_end[0]), int(minor_axis_end[1])),
+            (int(minor_axis[0]), int(minor_axis[1])),
+            (0, 255, 0),
+            lineThickness,
+        )
+
+    def _compute_contact_area(self, contours, contour_threshold):
+        for contour in contours:
+            if len(contour) > contour_threshold: # len(contour) 代表有多少個點組成的輪廓
+                ellipse = cv2.fitEllipse(contour) # return: center, (major, minor)直徑, angle
+                poly = cv2.ellipse2Poly(
+                    (int(ellipse[0][0]), int(ellipse[0][1])),
+                    (int(ellipse[1][0] / 2), int(ellipse[1][1] / 2)), # axis length
+                    int(ellipse[2]),
+                    0,
+                    360,
+                    5, # 每5度取一次點
+                )
+                center = np.array([ellipse[0][0], ellipse[0][1]])
+                a, b = (ellipse[1][0] / 2), (ellipse[1][1] / 2) # 長短軸
+                theta = (ellipse[2] / 180.0) * np.pi # 角度轉弧度
+                major_axis = np.array(
+                    [center[0] - b * np.sin(theta), center[1] + b * np.cos(theta)]
+                )
+                minor_axis = np.array(
+                    [center[0] + a * np.cos(theta), center[1] + a * np.sin(theta)]
+                )
+                major_axis_end = 2 * center - major_axis
+                minor_axis_end = 2 * center - minor_axis
+                return poly, major_axis, major_axis_end, minor_axis, minor_axis_end, center, theta
+
+    
 contact_area = contactArea(base=base_image)
-contact_area(sample_image)
+center, theta, major, minor = contact_area(sample_image)
+print("Major Axis: {0}, minor axis: {1}".format(*major, *minor))
+print("center: {0}, angle(rad.): {1}".format(center, theta)) 
+cv2.imwrite("contact_res.png", sample_image)
