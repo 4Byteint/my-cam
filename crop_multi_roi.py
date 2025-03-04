@@ -14,10 +14,11 @@ x1, x2 = min(x1, x2), max(x1, x2)
 y1, y2 = min(y1, y2), max(y1, y2)
 
 # 定義輸入和輸出目錄
-input_dir = "C:/Jill/Code/camera/trans-processing/dataset/al/original/"
-output_dir_base = "C:/Jill/Code/data/no_touch/al/S001/"
-output_dir_sample = "C:/Jill/Code/data/touch/al/S001/"
-
+input_dir = "C:/Jill/Code/camera/trans-processing/inference/2-RG"
+# output_dir_base = "C:/Jill/Code/data/no_touch/al/S001/"
+# output_dir_sample = "C:/Jill/Code/data/touch/al/S001/"
+output_dir_base = "C:/Jill/Code/camera/trans-processing/inference/2-RG/cropped/"
+output_dir_sample = "C:/Jill/Code/camera/trans-processing/inference/2-RG/cropped/"
 # 確保輸出目錄存在
 os.makedirs(output_dir_base, exist_ok=True)
 os.makedirs(output_dir_sample, exist_ok=True)
