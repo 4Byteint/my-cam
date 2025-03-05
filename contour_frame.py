@@ -1,7 +1,7 @@
 import cv2  # bringing in OpenCV libraries
 
-base_path = './trans-processing/inference/2-RG/cropped/img0_baseline.png'
-sample_path = './trans-processing/inference/2-RG/cropped/img1.png'
+base_path = './trans-processing/inference/2-RG/cropped/img1_baseline.png'
+sample_path = './trans-processing/inference/2-RG/cropped/img4.png'
 
 # 讀取圖像
 base_image = cv2.imread(base_path)
