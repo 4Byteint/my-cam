@@ -1,7 +1,7 @@
 import cv2  # bringing in OpenCV libraries
 
 base_path = './trans-processing/inference/2-RG/cropped/img1_baseline.png'
-sample_path = './trans-processing/inference/2-RG/cropped/img4.png'
+sample_path = './trans-processing/inference/2-RG/cropped/img3.png'
 
 # 讀取圖像
 base_image = cv2.imread(base_path)
@@ -12,7 +12,11 @@ sample_gray = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
 cv2.imshow('gray', sample_gray)
 
 blurred_diff = cv2.GaussianBlur(sample_gray, (7, 7), 0)
-ret,binary_im = cv2.threshold(blurred_diff,25, 255,cv2.THRESH_BINARY)
+kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (16, 16))
+kernel2 = cv2.getStructuringElement(cv2.MORPH_RECT, (16, 16))
+dilated = cv2.dilate(blurred_diff, kernel, iterations=1)
+eroded = cv2.erode(dilated, kernel2, iterations=1)
+ret,binary_im = cv2.threshold(eroded,25, 255,cv2.THRESH_BINARY)
 cv2.imshow('binary', binary_im)
 
 contours,hierarchy = cv2.findContours(binary_im,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
