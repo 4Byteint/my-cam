@@ -10,7 +10,7 @@ objp[:,:2] = np.mgrid[0:chessboard[0],0:chessboard[1]].T.reshape(-1,2)
 # Arrays to store object points and image points from all the images.
 objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
-images = glob.glob('./undistorted_image/*.jpg')
+images = glob.glob('.//*.jpg')
 for fname in images:
     img = cv.imread(fname)
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
@@ -28,12 +28,15 @@ for fname in images:
 cv.destroyAllWindows()
 #calibration: 誤差/內參/畸變參數/旋轉向量/平移向量
 ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+# save calibration results
+np.save('camera_matrix.npy', mtx)
+np.save('dist_coeff.npy', dist)
+
 # get undistorted image
 img = cv.imread('./undistorted_image/left12.jpg')
 h,  w = img.shape[:2]
 newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
-np.save('camera_matrix.npy')
-np.save('dist_coeff.npy')
+
 # undistort
 dst = cv.undistort(img, mtx, dist, None, newcameramtx)
 # crop the image

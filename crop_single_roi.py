@@ -1,31 +1,52 @@
 import cv2
+import numpy as np
 
-# 讀取圖片
-image_path = "C:/Jill/Code/camera/trans-processing/al-sample.png"
+def crop_trapezoid_with_bounded_mask(image_path, points):
+    """
+    使用遮罩來保留梯形區域，其他部分變黑，且輸出影像大小為梯形的包圍矩形大小
+    :param image_path: 影像檔案路徑
+    :param points: [(x1, y1), (x2, y2), (x3, y3), (x4, y4)] 梯形四個點的座標
+    :return: 只保留梯形區域的影像，大小與梯形包圍矩形一致
+    """
+    image = cv2.imread(image_path)
 
-image = cv2.imread(image_path)
+    if image is None:
+        print(f"錯誤：無法讀取影像 {image_path}，請檢查檔案路徑")
+        return None
 
-# 設定裁剪區域的座標 (x1, y1) 為左上角, (x2, y2) 為右下角
-x1, y1 = 210, 0  # 左上角
-x2, y2 = 462, 335  # 右下角
+    # 轉換為 NumPy 陣列
+    pts = np.array(points, dtype=np.int32)
 
-# 處理反光
-# x1, y1 = 181, 301  # 左上角
-# x2, y2 = 469, 361  # 右下角
+    # 計算梯形的包圍矩形 (bounding box)
+    x, y, w, h = cv2.boundingRect(pts)  # (x, y) 為左上角座標，(w, h) 為寬高
+
+    # 創建與梯形包圍矩形大小相同的黑色遮罩
+    mask = np.zeros((h, w), dtype=np.uint8)
+
+    # 調整梯形座標，使其適應新的遮罩大小
+    pts_adjusted = pts - [x, y]  # 讓 (x, y) 為 (0,0)
+
+    # 在遮罩上填充白色，表示我們想要保留的區域
+    cv2.fillPoly(mask, [pts_adjusted], 255)
+
+    # 裁剪原始影像，使大小與 bounding box 相同
+    cropped_image = image[y:y+h, x:x+w]
+
+    # 只保留梯形區域，其他部分變黑
+    masked_image = cv2.bitwise_and(cropped_image, cropped_image, mask=mask)
+
+    return masked_image
 
 
-# 確保 x1, x2, y1, y2 順序正確
-x1, x2 = min(x1, x2), max(x1, x2)
-y1, y2 = min(y1, y2), max(y1, y2)
+# 測試用：設定梯形四個點的座標 (左上、右上、右下、左下)
+image_path = "./imprint/al/img1.png"  # 替換為你的影像檔案
+trapezoid_points = [(147, 0), (492, 0), (468, 360), (197, 360)]  # 替換為你的梯形座標
 
-# 裁剪影像
-cropped_image = image[y1:y2, x1:x2]
+cropped_image = crop_trapezoid_with_bounded_mask(image_path, trapezoid_points)
 
-# 顯示裁剪結果
-cv2.imshow("Cropped Image", cropped_image)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
-
-# 存檔
-cv2.imwrite("al-sample-cropped.png", cropped_image)
-print("ok!")
+if cropped_image is not None:
+    cv2.imshow("Masked Trapezoid", cropped_image)
+    cv2.imwrite("./imprint/al/cropped/img1.png", cropped_image)
+    print("shape_size: ", cropped_image.shape)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
