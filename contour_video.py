@@ -65,7 +65,7 @@ class ContactArea():
 # ==============================================================
 # main
 def showRealtimeImage():
-    base_path = './trans-processing/2-RG/img0-base.png'
+    base_path = './trans-processing/inference/2-RG/2-RG/img0-base.png'
     base_image = cv2.imread(base_path)
     if base_image is None:
         raise AssertionError("A base sample must be specified for Pose.")
