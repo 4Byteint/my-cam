@@ -1,7 +1,7 @@
 import numpy as np
 import cv2 as cv
 import glob
-chessboard = (7, 6) # corner: rows*cols
+chessboard = (4, 4) # corner: rows*cols
 # termination criteria
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
@@ -10,7 +10,7 @@ objp[:,:2] = np.mgrid[0:chessboard[0],0:chessboard[1]].T.reshape(-1,2)
 # Arrays to store object points and image points from all the images.
 objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
-images = glob.glob('.//*.jpg')
+images = glob.glob('./calibration/*.png')
 for fname in images:
     img = cv.imread(fname)
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
@@ -32,14 +32,12 @@ ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, gray.sha
 np.save('camera_matrix.npy', mtx)
 np.save('dist_coeff.npy', dist)
 
-# get undistorted image
-img = cv.imread('./undistorted_image/left12.jpg')
-h,  w = img.shape[:2]
-newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
-
-# undistort
+# 計算新的內參矩陣
+h, w = gray.shape[:2]
+newcameramtx, _ = cv.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1, (w, h))
+# 讀取待校正的圖像
+img = cv.imread('./calibration/img5_cali.png')
+# 進行去畸變校正
 dst = cv.undistort(img, mtx, dist, None, newcameramtx)
-# crop the image
-x, y, w, h = roi
-dst = dst[y:y+h, x:x+w]
+# 儲存校正後的影像
 cv.imwrite('calibresult.png', dst)
