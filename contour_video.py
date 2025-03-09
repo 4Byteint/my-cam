@@ -8,7 +8,7 @@ picam2 = Picamera2()
 camera_config = picam2.create_still_configuration(main={"size":(640,480)})  # 使用預覽模式
 picam2.configure(camera_config)
 # 關閉自動對焦(Af)，設置為手動模式
-picam2.set_controls({"AfMode": 0, "LensPosition": 1.0})  # 固定焦距到 1/10m = 10cm
+picam2.set_controls({"AfMode": 0, "LensPosition": 1.0})  # 固定焦距到 1m/10 = 10cm
 picam2.set_controls({"AwbEnable": False, "ColourGains": (1.5, 0.7)})  # 1.7/0.7關掉白平衡，調整 Gain 值
 picam2.set_controls({"ExposureValue": -0.5})  # +1 EV 提高亮度
 picam2.start()

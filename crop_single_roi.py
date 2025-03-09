@@ -9,11 +9,6 @@ def crop_trapezoid_with_bounded_mask(image_path, points):
     :return: 只保留梯形區域的影像，大小與梯形包圍矩形一致
     """
     image = cv2.imread(image_path)
-
-    if image is None:
-        print(f"錯誤：無法讀取影像 {image_path}，請檢查檔案路徑")
-        return None
-
     # 轉換為 NumPy 陣列
     pts = np.array(points, dtype=np.int32)
 
@@ -39,14 +34,13 @@ def crop_trapezoid_with_bounded_mask(image_path, points):
 
 
 # 測試用：設定梯形四個點的座標 (左上、右上、右下、左下)
-image_path = "./imprint/al/img1.png"  # 替換為你的影像檔案
+image_path = "./imprint/al/img3.png"  # 替換為你的影像檔案
 trapezoid_points = [(147, 0), (492, 0), (468, 360), (197, 360)]  # 替換為你的梯形座標
-
 cropped_image = crop_trapezoid_with_bounded_mask(image_path, trapezoid_points)
 
 if cropped_image is not None:
     cv2.imshow("Masked Trapezoid", cropped_image)
-    cv2.imwrite("./imprint/al/cropped/img1.png", cropped_image)
+    cv2.imwrite("./imprint/al/cropped/img3.png", cropped_image)
     print("shape_size: ", cropped_image.shape)
     cv2.waitKey(0)
     cv2.destroyAllWindows()

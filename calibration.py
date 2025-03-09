@@ -36,7 +36,7 @@ np.save('dist_coeff.npy', dist)
 h, w = gray.shape[:2]
 newcameramtx, _ = cv.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1, (w, h))
 # 讀取待校正的圖像
-img = cv.imread('./calibration/img5_cali.png')
+img = cv.imread('./calibration/img6_cali.png')
 # 進行去畸變校正
 dst = cv.undistort(img, mtx, dist, None, newcameramtx)
 # 儲存校正後的影像
