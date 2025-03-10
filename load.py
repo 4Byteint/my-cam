@@ -87,7 +87,25 @@ def compute_surface_gradients(cx, cy, r, img_shape):
     plt.show()
 
     return Gx, Gy, mask
-
+def lookup_table_dict(cx,cy,r, sample_path, Gx, Gy):
+    img = cv2.imread(sample_path)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    H, W, _ = img.shape[:2]
+    X, Y = np.meshgrid(np.arange(W) , np.arange(H) )
+    R = img[:, :, 0]
+    G = img[:, :, 1]
+    dtype = [('x', 'i4'), ('y', 'i4'), ('R', 'i4'), ('G', 'i4'), ('Gx', 'f4'), ('Gy', 'f4')]
+    lut = np.zeros(H*W, dtype=dtype)
+    # 填充 Lookup Table
+    # 將所有數據填入 lookup table
+    lut['x'] = X.flatten()
+    lut['y'] = Y.flatten()
+    lut['R'] = R.flatten()
+    lut['G'] = G.flatten()
+    lut['Gx'] = Gx.flatten()
+    lut['Gy'] = Gy.flatten()
+    # ===== 顯示 Lookup Table 結果 =====
+    
 def create_rgb2gradient_dataset(base_path, sample_path):
     """
     讀取影像，過濾背景，只儲存半圓球的 RGB + 梯度數據
@@ -102,19 +120,9 @@ def create_rgb2gradient_dataset(base_path, sample_path):
     # # 計算梯度，只取半圓球內部
     Gx, Gy, mask = compute_surface_gradients(cx, cy, r, img.shape)
 
-    # # 建立數據集（只儲存半圓球區域）
-    # dataset = []
-    # for i in range(img.shape[0]):
-    #     for j in range(img.shape[1]):
-    #         if mask[i, j]:  # 只儲存半圓球內部的數據
-    #             dataset.append([img_rgb[i, j, 0], img_rgb[i, j, 1], img_rgb[i, j, 2], Gx[i, j], Gy[i, j]])
+    # 建立 lookup table
 
-    # dataset = np.array(dataset)
-
-    # 儲存數據集
-    # np.save("gradient_dataset.npy", dataset)
-    # print("已儲存數據集：gradient_dataset.npy")
-    # return dataset
+    
 
 # 設定影像路徑
 base_path = "./trasform_img0_base.png"  # 替換為你的壓痕影像
