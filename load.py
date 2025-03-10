@@ -70,7 +70,6 @@ def compute_surface_gradients(cx, cy, r, img_shape):
     print("Gx 範圍:", np.min(Gx), np.max(Gx))
     print("Gy 範圍:", np.min(Gy), np.max(Gy))
     import matplotlib.pyplot as plt
-    import matplotlib.pyplot as plt
 
     plt.figure(figsize=(8, 8))
     plt.quiver(X[::5, ::5], Y[::5, ::5], Gx[::5, ::5], Gy[::5, ::5], scale=50, color="red")
@@ -112,7 +111,7 @@ def create_rgb2gradient_dataset(base_path, sample_path):
 
 # 設定影像路徑
 base_path = "./imprint/al/cropped/img0_base.png"  # 替換為你的壓痕影像
-sample_path = "./imprint/al/cropped/img2.png" 
+sample_path = "./imprint/al/cropped/img3.png" 
 
 # 產生 RGB 對應梯度的數據集
 dataset = create_rgb2gradient_dataset(base_path, sample_path)
