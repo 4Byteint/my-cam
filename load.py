@@ -57,19 +57,23 @@ def compute_surface_gradients(cx, cy, r, img_shape):
     """
     H, W = img_shape[:2]
     X, Y = np.meshgrid(np.arange(W) , np.arange(H) )
+  
+    # 轉換座標，使 (x_c, y_c) 成為圓心
+    Xc = X - cx
+    Yc = Y - cy
 
     # 計算球體 Z 值，確保 Z > 0（半圓球區域）
-    Z = np.sqrt(np.maximum(r**2 - X**2 - Y**2, 0) + 1e-6)  # 避免 sqrt 負數
+    Z = np.sqrt(np.maximum(r**2 - Xc**2 - Yc**2, 0) + 1e-6)  # 避免 sqrt 負數
     # 建立遮罩：只選擇球體內部區域
-    mask = (X**2 + Y**2 < r**2) & (Z > 0)
+    mask = (Xc**2 + Yc**2 < r**2) & (Z > 0)
     # 計算表面梯度，只對半圓球區域有效
-    Gx = np.where(mask, X / Z, 0)  # 非半圓球區域設為 0
-    Gy = np.where(mask, Y / Z, 0)
+    Gx = np.where(mask, Xc / Z, 0)  # 非半圓球區域設為 0
+    Gy = np.where(mask, Yc / Z, 0)
     print("mask True 的數量:", np.count_nonzero(mask))
     print("Z min:", np.min(Z))
     print("Z max:", np.max(Z))
-    print("X 範圍:", np.min(X), np.max(X))
-    print("Y 範圍:", np.min(Y), np.max(Y))
+    print("X 範圍:", np.min(Xc), np.max(Xc))
+    print("Y 範圍:", np.min(Yc), np.max(Yc))
     print("Gx 範圍:", np.min(Gx), np.max(Gx))
     print("Gy 範圍:", np.min(Gy), np.max(Gy))
     import matplotlib.pyplot as plt
