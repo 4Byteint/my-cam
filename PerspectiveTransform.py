@@ -24,10 +24,10 @@ def cal_perspective_params(img, points):
     return M, warped_img
 
 if __name__ == '__main__':
-    img = cv2.imread('./imprint/al/img0.png')
-    points = np.array([(147,0),(492,0),(458,360),(197,345)])
+    img = cv2.imread('./imprint/al/img4.png')
+    points = np.array([(130,0),(520,0),(470,360),(185,360)])
     M, transform_img = cal_perspective_params(img, points)
     cv2.imshow('img',img)
-    cv2.imshow('trasform_img',transform_img)
-    cv2.imwrite('trasform_img0.png',transform_img)
+    cv2.imshow('trasform_img0',transform_img)
+    cv2.imwrite('trasform_img4.png',transform_img)
     cv2.waitKey(0)

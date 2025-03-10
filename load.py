@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-def detect_sphere_imprint(base_path, sample_path, min_radius=5, max_radius=70):
+def detect_sphere_imprint(base_path, sample_path, min_radius=25, max_radius=45):
     """
     使用霍夫圓變換偵測球體壓痕
     :param image_path: 壓痕影像的路徑
@@ -18,11 +18,14 @@ def detect_sphere_imprint(base_path, sample_path, min_radius=5, max_radius=70):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     # 進行高斯模糊，減少雜訊影響
-    gray_blurred = cv2.GaussianBlur(gray, (9,9), 1)
+    gray_blurred = cv2.GaussianBlur(gray, (9,9), 2)
 
     # 使用霍夫圓變換來偵測圓形壓痕
-    circles = cv2.HoughCircles(gray_blurred, cv2.HOUGH_GRADIENT, dp=1.2, minDist=20,
-                               param1=50, param2=30, minRadius=min_radius, maxRadius=max_radius)
+    # miniDist:
+    # param1: canny thershold
+    # param2: hough 累積的 thershold 越小檢測到的圓越多
+    circles = cv2.HoughCircles(gray_blurred, cv2.HOUGH_GRADIENT, dp=1.2, minDist=100,
+                               param1=15, param2=20, minRadius=min_radius, maxRadius=max_radius)
     if circles is not None:
         circles = np.uint16(np.around(circles))
         best_circle = max(circles[0, :], key=lambda c: c[2])  # 取半徑最大的圓
@@ -53,7 +56,7 @@ def compute_surface_gradients(cx, cy, r, img_shape):
     :return: 梯度場 (Gx, Gy) 和球體遮罩 mask
     """
     H, W = img_shape[:2]
-    X, Y = np.meshgrid(np.arange(W) - cx, np.arange(H) - cy)
+    X, Y = np.meshgrid(np.arange(W) , np.arange(H) )
 
     # 計算球體 Z 值，確保 Z > 0（半圓球區域）
     Z = np.sqrt(np.maximum(r**2 - X**2 - Y**2, 0) + 1e-6)  # 避免 sqrt 負數
@@ -92,26 +95,26 @@ def create_rgb2gradient_dataset(base_path, sample_path):
     # 偵測球體
     cx, cy, r = detect_sphere_imprint(base_path, sample_path)
 
-    # 計算梯度，只取半圓球內部
+    # # 計算梯度，只取半圓球內部
     Gx, Gy, mask = compute_surface_gradients(cx, cy, r, img.shape)
 
-    # 建立數據集（只儲存半圓球區域）
-    dataset = []
-    for i in range(img.shape[0]):
-        for j in range(img.shape[1]):
-            if mask[i, j]:  # 只儲存半圓球內部的數據
-                dataset.append([img_rgb[i, j, 0], img_rgb[i, j, 1], img_rgb[i, j, 2], Gx[i, j], Gy[i, j]])
+    # # 建立數據集（只儲存半圓球區域）
+    # dataset = []
+    # for i in range(img.shape[0]):
+    #     for j in range(img.shape[1]):
+    #         if mask[i, j]:  # 只儲存半圓球內部的數據
+    #             dataset.append([img_rgb[i, j, 0], img_rgb[i, j, 1], img_rgb[i, j, 2], Gx[i, j], Gy[i, j]])
 
-    dataset = np.array(dataset)
+    # dataset = np.array(dataset)
 
     # 儲存數據集
-    np.save("gradient_dataset.npy", dataset)
-    print("已儲存數據集：gradient_dataset.npy")
-    return dataset
+    # np.save("gradient_dataset.npy", dataset)
+    # print("已儲存數據集：gradient_dataset.npy")
+    # return dataset
 
 # 設定影像路徑
-base_path = "./imprint/al/cropped/img0_base.png"  # 替換為你的壓痕影像
-sample_path = "./imprint/al/cropped/img3.png" 
+base_path = "./trasform_img0_base.png"  # 替換為你的壓痕影像
+sample_path = "./trasform_img2.png" 
 
 # 產生 RGB 對應梯度的數據集
 dataset = create_rgb2gradient_dataset(base_path, sample_path)
