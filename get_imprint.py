@@ -19,7 +19,7 @@ picam2.start()
 
 def showRealtimeImage(frame_name):
     base_count = 0
-    base_path = "./imprint/al/"
+    base_path = "./imprint/"
 
     while True:
         frame = picam2.capture_array()
