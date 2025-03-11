@@ -1,5 +1,58 @@
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
+
+
+def get_mpp(image_path, chessboard_size, square_size, camera_matrix=None, dist_coeffs=None):
+    """
+    使用棋盤格標定計算 mpp
+    :param image_path: 棋盤格影像
+    :param chessboard_size: 棋盤格內部角點數量 (cols, rows)
+    :param square_size: 每個方格的真實尺寸 (mm)
+    :return: 計算出的 mpp (mm/pixel)
+    """
+    image = cv2.imread(image_path)
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    # 若提供了內部參數與畸變係數，先進行去畸變處理
+    if camera_matrix is not None and dist_coeffs is not None:
+        gray = cv2.undistort(gray, camera_matrix, dist_coeffs)
+
+    # 偵測棋盤格角點 (初步偵測)
+    ret, corners = cv2.findChessboardCorners(gray, chessboard_size, None)
+    if not ret:
+        print("未偵測到棋盤格，請確認影像")
+        return None
+
+    # 設定亞像素級細化參數
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.01)  # (類型, 最大迭代次數, 精度閾值)
+    
+    # 使用 cornerSubPix 進一步細化角點
+    corners = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+
+    # 取出角點座標
+    corners = corners.squeeze()  # (N, 1, 2) -> (N, 2)
+
+    # 計算 X 方向的 mpp
+    num_cols = chessboard_size[0] - 1  # 內部角點數量
+    x_dists = [
+        np.linalg.norm(corners[i] - corners[i + 1])
+        for i in range(num_cols)
+    ]
+    avg_x_dist = np.mean(x_dists)  # 計算像素距離
+    mpp_x = square_size / avg_x_dist  # mm/pixel
+
+    # 計算 Y 方向的 mpp
+    num_rows = chessboard_size[1] - 1
+    y_dists = [
+        np.linalg.norm(corners[i] - corners[i + chessboard_size[0]])
+        for i in range(0, num_rows * chessboard_size[0], chessboard_size[0])
+    ]
+    avg_y_dist = np.mean(y_dists)
+    mpp_y = square_size / avg_y_dist
+
+    print(f"mpp (X方向): {mpp_x:.6f} mm/pixel")
+    print(f"mpp (Y方向): {mpp_y:.6f} mm/pixel")
+    return (mpp_x + mpp_y) / 2  # 取平均值作為 mpp
 
 def detect_sphere_imprint(base_path, sample_path, min_radius=25, max_radius=45):
     """
@@ -55,25 +108,27 @@ def compute_surface_gradients(cx, cy, r, img_shape):
     :param img_shape: 影像尺寸 (H, W)
     :return: 梯度場 (Gx, Gy) 和球體遮罩 mask
     """
+    print(r)
     H, W = img_shape[:2]
     X, Y = np.meshgrid(np.arange(W) , np.arange(H) )
   
     # 轉換座標，使 (x_c, y_c) 成為圓心
     Xc = X - cx
     Yc = Y - cy
-
+    # 建立遮罩，只取半球內的像素
+    mask = (Xc**2 + Yc**2 < r**2)
     # 計算球體 Z 值，確保 Z > 0（半圓球區域）
     Z = np.sqrt(np.maximum(r**2 - Xc**2 - Yc**2, 0) + 1e-6)  # 避免 sqrt 負數
-    # 建立遮罩：只選擇球體內部區域
-    mask = (Xc**2 + Yc**2 < r**2) & (Z > 0)
+   
     # 計算表面梯度，只對半圓球區域有效
-    Gx = np.where(mask, Xc / Z, 0)  # 非半圓球區域設為 0
+    Gx = np.where(mask, Xc / Z, 0)
     Gy = np.where(mask, Yc / Z, 0)
-    print("mask True 的數量:", np.count_nonzero(mask))
+    Gx[Z < 1e-2] = 0 # 挑出在 Gx 中 Z 太小的設為 0，保證邊界上的 Gx, Gy 不會因為 Z ≈ 0 產生無窮大
+    Gy[Z < 1e-2] = 0 # 避免邊界處的計算異常
     print("Z min:", np.min(Z))
     print("Z max:", np.max(Z))
-    print("X 範圍:", np.min(Xc), np.max(Xc))
-    print("Y 範圍:", np.min(Yc), np.max(Yc))
+    print("X 範圍:", np.min(X), np.max(X))
+    print("Y 範圍:", np.min(Y), np.max(Y))
     print("Gx 範圍:", np.min(Gx), np.max(Gx))
     print("Gy 範圍:", np.min(Gy), np.max(Gy))
     import matplotlib.pyplot as plt
@@ -87,10 +142,10 @@ def compute_surface_gradients(cx, cy, r, img_shape):
     plt.show()
 
     return Gx, Gy, mask
-def lookup_table_dict(cx,cy,r, sample_path, Gx, Gy):
+def lookup_table_dict(sample_path, Gx, Gy):
     img = cv2.imread(sample_path)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    H, W, _ = img.shape[:2]
+    H, W = img.shape[:2]
     X, Y = np.meshgrid(np.arange(W) , np.arange(H) )
     R = img[:, :, 0]
     G = img[:, :, 1]
@@ -104,8 +159,28 @@ def lookup_table_dict(cx,cy,r, sample_path, Gx, Gy):
     lut['G'] = G.flatten()
     lut['Gx'] = Gx.flatten()
     lut['Gy'] = Gy.flatten()
-    # ===== 顯示 Lookup Table 結果 =====
+
+    return lut
+# import pandas as pd
+# import ace_tools as tools  # 用於顯示 DataFrame
+
+# def visualize_lut(lut):
+#     df = pd.DataFrame(lut)  # 轉換為 DataFrame
+#     tools.display_dataframe_to_user(name="Lookup Table", dataframe=df)  # 顯示表格
+def visualize_gradient_heatmap(Gx, Gy):
+    fig, ax = plt.subplots(1, 2, figsize=(12, 5))
+
+    im1 = ax[0].imshow(Gx, cmap='coolwarm', vmin=-1, vmax=1)
+    ax[0].set_title("Gx Heatmap")
+    plt.colorbar(im1, ax=ax[0])
     
+
+    im2 = ax[1].imshow(Gy, cmap='coolwarm', vmin=-1, vmax=1)
+    ax[1].set_title("Gy Heatmap")
+    plt.colorbar(im2, ax=ax[1])
+
+    plt.show()
+
 def create_rgb2gradient_dataset(base_path, sample_path):
     """
     讀取影像，過濾背景，只儲存半圓球的 RGB + 梯度數據
@@ -121,6 +196,12 @@ def create_rgb2gradient_dataset(base_path, sample_path):
     Gx, Gy, mask = compute_surface_gradients(cx, cy, r, img.shape)
 
     # 建立 lookup table
+    lut = lookup_table_dict(sample_path, Gx, Gy)
+    #visualize_lut(lut)
+    visualize_gradient_heatmap(Gx, Gy)
+    x_query, y_query = 304, 254
+    result = lut[(lut['x'] == x_query) & (lut['y'] == y_query)]
+    print(result)
 
     
 
