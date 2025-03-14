@@ -1,3 +1,4 @@
+import pandas as pd
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
@@ -159,26 +160,16 @@ def lookup_table_dict(sample_path, Gx, Gy):
     lut['G'] = G.flatten()
     lut['Gx'] = Gx.flatten()
     lut['Gy'] = Gy.flatten()
-
     return lut
-# import pandas as pd
-# import ace_tools as tools  # 用於顯示 DataFrame
 
-# def visualize_lut(lut):
-#     df = pd.DataFrame(lut)  # 轉換為 DataFrame
-#     tools.display_dataframe_to_user(name="Lookup Table", dataframe=df)  # 顯示表格
 def visualize_gradient_heatmap(Gx, Gy):
     fig, ax = plt.subplots(1, 2, figsize=(12, 5))
-
     im1 = ax[0].imshow(Gx, cmap='coolwarm')
     ax[0].set_title("Gx Heatmap")
     plt.colorbar(im1, ax=ax[0])
-    
-
-    im2 = ax[1].imshow(Gy, cmap='coolwarm', vmin=-1, vmax=1)
+    im2 = ax[1].imshow(Gy, cmap='coolwarm')
     ax[1].set_title("Gy Heatmap")
     plt.colorbar(im2, ax=ax[1])
-
     plt.show()
 
 def query_lut(lut, x_query, y_query):
@@ -191,6 +182,10 @@ def query_lut(lut, x_query, y_query):
         print(f"Gy: {result['Gy'][0]:.10f}")  # 顯示 10 位小數
     else:
         print("未找到對應座標")
+def save_lut_csv(lut, filename="lookup_table.csv"):
+    df = pd.DataFrame(lut)
+    df.to_csv(filename, index=False)
+    print(f"LUT 已儲存為 {filename}")
 
 
 def create_rgb2gradient_dataset(base_path, sample_path):
@@ -214,11 +209,9 @@ def create_rgb2gradient_dataset(base_path, sample_path):
     visualize_gradient_heatmap(Gx, Gy)
     
     # 查詢
-    x_query, y_query = 304, 254
+    x_query, y_query = 300, 260
     query_lut(lut, x_query, y_query)
-
-
-    
+    save_lut_csv(lut)
 
 # 設定影像路徑
 base_path = "./transform_img0_base.png"  # 替換為你的壓痕影像
