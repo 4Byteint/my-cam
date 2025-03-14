@@ -19,8 +19,8 @@ for fname in images:
     # If found, add object points, image points (after refining them)
     if ret == True:
         objpoints.append(objp)
-        corners2 = cv.cornerSubPix(gray,corners, (11,11), (-1,-1), criteria)
-        imgpoints.append(corners)
+        corners2 = cv.cornerSubPix(gray, corners, (11,11), (-1,-1), criteria)
+        imgpoints.append(corners2)
         # Draw and display the corners
         cv.drawChessboardCorners(img, (chessboard[0],chessboard[1]), corners2, ret)
         cv.imshow('img', img)
@@ -28,6 +28,8 @@ for fname in images:
 cv.destroyAllWindows()
 #calibration: 誤差/內參/畸變參數/旋轉向量/平移向量
 ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+print('mtx: ',mtx)
+print('dist: ',dist)
 # save calibration results
 np.save('camera_matrix.npy', mtx)
 np.save('dist_coeff.npy', dist)
@@ -35,9 +37,12 @@ np.save('dist_coeff.npy', dist)
 # 計算新的內參矩陣
 h, w = gray.shape[:2]
 newcameramtx, _ = cv.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1, (w, h))
+mapx, mapy = cv.initUndistortRectifyMap(mtx, dist, None, newcameramtx, (w,h), cv.CV_32FC1)
+
 # 讀取待校正的圖像
-img = cv.imread('./calibration/fixed_cam/img2.png')
+img = cv.imread('./calibration/fixed_cam/img1.png')
+dst = cv.remap(img, mapx, mapy,cv.INTER_LINEAR)
 # 進行去畸變校正
-dst = cv.undistort(img, mtx, dist, None, newcameramtx)
+#dst = cv.undistort(img, mtx, dist, None, newcameramtx)
 # 儲存校正後的影像
 cv.imwrite('calibresult.png', dst)
