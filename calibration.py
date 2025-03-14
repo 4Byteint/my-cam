@@ -10,7 +10,7 @@ objp[:,:2] = np.mgrid[0:chessboard[0],0:chessboard[1]].T.reshape(-1,2)
 # Arrays to store object points and image points from all the images.
 objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
-images = glob.glob('./calibration/fixed_cam/*.png')
+images = glob.glob('./calibration/cam/*.png')
 for fname in images:
     img = cv.imread(fname)
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
@@ -42,13 +42,11 @@ np.save('dist_coeff.npy', dist)
 
 newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w, h), 0.9, (w, h))
 
-# 讀取需要校正的影像
-img = cv.imread('./calibration/fixed_cam/img5.png')
-
-# 方法 1: 使用 undistort
-undistorted_img = cv.undistort(img, mtx, dist, None, newcameramtx)
-# x, y, w, h = roi
-# undistorted_img = undistorted_img[y:y+h, x:x+w]
+# 讀取待校正的圖像
+img = cv.imread('./calibration/fixed_cam/img1.png')
+dst = cv.remap(img, mapx, mapy,cv.INTER_LINEAR)
+# 進行去畸變校正
+#dst = cv.undistort(img, mtx, dist, None, newcameramtx)
 # 儲存校正後的影像
 cv.imwrite('calibresult.png', undistorted_img)
 
