@@ -16,7 +16,7 @@ picam2.start()
 
 
 def showRealtimeImage(frame_name):
-    base_count = 48
+    base_count = 0
     base_path = "./calibration/fixed_cam/"
 
     while True:
