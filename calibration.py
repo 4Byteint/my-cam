@@ -1,7 +1,7 @@
 import numpy as np
 import cv2 as cv
 import glob
-chessboard = (4, 4) # corner: rows*cols
+chessboard = (4, 4) 
 # termination criteria
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
@@ -14,35 +14,42 @@ images = glob.glob('./calibration/fixed_cam/*.png')
 for fname in images:
     img = cv.imread(fname)
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+
     # Find the chess board corners
     ret, corners = cv.findChessboardCorners(gray, (chessboard[0],chessboard[1]), None)
+
     # If found, add object points, image points (after refining them)
     if ret == True:
+        print(f"Detected {len(corners) if ret else 0} corners in {fname}")
         objpoints.append(objp)
-        corners2 = cv.cornerSubPix(gray, corners, (11,11), (-1,-1), criteria)
+        corners2 = cv.cornerSubPix(gray, corners, (5,5), (-1,-1), criteria)
         imgpoints.append(corners2)
         # Draw and display the corners
         cv.drawChessboardCorners(img, (chessboard[0],chessboard[1]), corners2, ret)
         cv.imshow('img', img)
         cv.waitKey(500)
+    else:
+        print(f"Warning: Failed to detect chessboard corners in {fname}")
 cv.destroyAllWindows()
 #calibration: 誤差/內參/畸變參數/旋轉向量/平移向量
-ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+h, w = gray.shape[:2]
+ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, (w, h), None, None)
 print('mtx: ',mtx)
 print('dist: ',dist)
 # save calibration results
 np.save('camera_matrix.npy', mtx)
 np.save('dist_coeff.npy', dist)
 
-# 計算新的內參矩陣
-h, w = gray.shape[:2]
-newcameramtx, _ = cv.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1, (w, h))
-mapx, mapy = cv.initUndistortRectifyMap(mtx, dist, None, newcameramtx, (w,h), cv.CV_32FC1)
+newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w, h), 0.9, (w, h))
 
-# 讀取待校正的圖像
-img = cv.imread('./calibration/fixed_cam/img1.png')
-dst = cv.remap(img, mapx, mapy,cv.INTER_LINEAR)
-# 進行去畸變校正
-#dst = cv.undistort(img, mtx, dist, None, newcameramtx)
+# 讀取需要校正的影像
+img = cv.imread('./calibration/fixed_cam/img5.png')
+
+# 方法 1: 使用 undistort
+undistorted_img = cv.undistort(img, mtx, dist, None, newcameramtx)
+# x, y, w, h = roi
+# undistorted_img = undistorted_img[y:y+h, x:x+w]
 # 儲存校正後的影像
-cv.imwrite('calibresult.png', dst)
+cv.imwrite('calibresult.png', undistorted_img)
+
+print("Calibration completed successfully. Output saved as calibresult.png")
