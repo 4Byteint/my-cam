@@ -112,7 +112,7 @@ def compute_surface_gradients(cx, cy, r, img_shape):
     H, W = img_shape[:2]
     X, Y = np.meshgrid(np.arange(W) , np.arange(H) )
   
-    # 轉換座標，使 (x_c, y_c) 成為圓心
+    # 轉換座標，使 Xc, Yc 相對於圓心
     Xc = X - cx
     Yc = Y - cy
     # 建立遮罩，只取半球內的像素
@@ -170,7 +170,7 @@ def lookup_table_dict(sample_path, Gx, Gy):
 def visualize_gradient_heatmap(Gx, Gy):
     fig, ax = plt.subplots(1, 2, figsize=(12, 5))
 
-    im1 = ax[0].imshow(Gx, cmap='coolwarm', vmin=-1, vmax=1)
+    im1 = ax[0].imshow(Gx, cmap='coolwarm')
     ax[0].set_title("Gx Heatmap")
     plt.colorbar(im1, ax=ax[0])
     
@@ -180,6 +180,18 @@ def visualize_gradient_heatmap(Gx, Gy):
     plt.colorbar(im2, ax=ax[1])
 
     plt.show()
+
+def query_lut(lut, x_query, y_query):
+    result = lut[(lut['x'] == x_query) & (lut['y'] == y_query)]
+    if result.size > 0:
+        print(f"查詢座標 ({x_query}, {y_query})")
+        print(f"R: {result['R'][0]}")
+        print(f"G: {result['G'][0]}")
+        print(f"Gx: {result['Gx'][0]:.10f}")  # 顯示 10 位小數
+        print(f"Gy: {result['Gy'][0]:.10f}")  # 顯示 10 位小數
+    else:
+        print("未找到對應座標")
+
 
 def create_rgb2gradient_dataset(base_path, sample_path):
     """
@@ -198,16 +210,19 @@ def create_rgb2gradient_dataset(base_path, sample_path):
     # 建立 lookup table
     lut = lookup_table_dict(sample_path, Gx, Gy)
     #visualize_lut(lut)
+    # 可視化
     visualize_gradient_heatmap(Gx, Gy)
+    
+    # 查詢
     x_query, y_query = 304, 254
-    result = lut[(lut['x'] == x_query) & (lut['y'] == y_query)]
-    print(result)
+    query_lut(lut, x_query, y_query)
+
 
     
 
 # 設定影像路徑
-base_path = "./trasform_img0_base.png"  # 替換為你的壓痕影像
-sample_path = "./trasform_img2.png" 
+base_path = "./transform_img0_base.png"  # 替換為你的壓痕影像
+sample_path = "./transform_img2.png" 
 
 # 產生 RGB 對應梯度的數據集
 dataset = create_rgb2gradient_dataset(base_path, sample_path)

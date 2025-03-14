@@ -34,13 +34,13 @@ def crop_trapezoid_with_bounded_mask(image_path, points):
 
 
 # 測試用：設定梯形四個點的座標 (左上、右上、右下、左下)
-image_path = "./imprint/al/img3.png"  # 替換為你的影像檔案
-trapezoid_points = [(147, 0), (492, 0), (468, 360), (197, 360)]  # 替換為你的梯形座標
+image_path = "./imprint/img0_base.png"  # 替換為你的影像檔案
+trapezoid_points = [(136, 0), (515, 0), (458, 340), (200, 348)]  # 替換為你的梯形座標
 cropped_image = crop_trapezoid_with_bounded_mask(image_path, trapezoid_points)
 
 if cropped_image is not None:
     cv2.imshow("Masked Trapezoid", cropped_image)
-    cv2.imwrite("./imprint/al/cropped/img3.png", cropped_image)
+    cv2.imwrite("./imprint/al/cropped/img0_base.png", cropped_image)
     print("shape_size: ", cropped_image.shape)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
