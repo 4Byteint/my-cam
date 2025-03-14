@@ -10,7 +10,7 @@ objp[:,:2] = np.mgrid[0:chessboard[0],0:chessboard[1]].T.reshape(-1,2)
 # Arrays to store object points and image points from all the images.
 objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
-images = glob.glob('./calibration/fixed_cam/*.png')
+images = glob.glob('./calibration/cam/*.png')
 for fname in images:
     img = cv.imread(fname)
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
@@ -40,7 +40,7 @@ newcameramtx, _ = cv.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1, (w, h))
 mapx, mapy = cv.initUndistortRectifyMap(mtx, dist, None, newcameramtx, (w,h), cv.CV_32FC1)
 
 # 讀取待校正的圖像
-img = cv.imread('./calibration/fixed_cam/img1.png')
+img = cv.imread('./calibration/cam/img1.png')
 dst = cv.remap(img, mapx, mapy,cv.INTER_LINEAR)
 # 進行去畸變校正
 #dst = cv.undistort(img, mtx, dist, None, newcameramtx)
