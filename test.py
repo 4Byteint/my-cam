@@ -13,11 +13,12 @@ picam2.set_controls({"AfMode": 0, "LensPosition": 1.0})  # 固定焦距到 1/10m
 #picam2.set_controls({"AwbEnable": False, "ColourGains": (1.5, 1.0)})  # 1.7/0.7關掉白平衡，調整  Gain 值
 #picam2.set_controls({"ExposureValue": -0.5})  # +1 EV 提高亮度
 picam2.start()
-
+camera_matrix = np.load("./camera_matrix_real.npy")
+dist_coeffs = np.load("./dist_coeff_real.npy")
 
 def showRealtimeImage(frame_name):
-    base_count = 0
-    base_path = "./calibration/"
+    base_count = 58
+    base_path = "./calibration/fixed_cam/"
 
     while True:
         frame = picam2.capture_array()
@@ -25,19 +26,20 @@ def showRealtimeImage(frame_name):
         # 修正色彩空間（RGB -> BGR）
         frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         flipped_frame = cv2.flip(frame_bgr,0)
+        flipped_frame = cv2.undistort(flipped_frame, camera_matrix, dist_coeffs)
         cv2.imshow(frame_name, flipped_frame)
         
         key = cv2.waitKey(1)
         if key == ord('q'):
             break
         elif key == ord('b'):
-            img_name = os.path.join(base_path, f"img{base_count}_transform.png")
+            img_name = os.path.join(base_path, f"img{base_count}.png")
             cv2.imwrite(img_name, flipped_frame)
             base_count += 1
 
 def getFrame(frame_name):
     frame = picam2.capture_array()
-    frame = cv2.undistort(frame, camera_matrix, dist_coeffs)
+    # frame = cv2.undistort(frame, camera_matrix, dist_coeffs)
      # 修正色彩空間（RGB -> BGR）
     frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
     flipped_frame = cv2.flip(frame_bgr,0)
