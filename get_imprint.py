@@ -19,7 +19,7 @@ dist_coeff = np.load("./dist_coeff_real.npy")
 
 def showRealtimeImage(frame_name):
     base_count = 0
-    base_path = "./calibration/"
+    base_path = "./imprint/al_calib"
 
     while True:
         frame = picam2.capture_array()
@@ -33,14 +33,14 @@ def showRealtimeImage(frame_name):
         if key == ord('q'):
             break
         elif key == ord('b'):
-            img_name = os.path.join(base_path, f"img{base_count}.png")
+            img_name = os.path.join(base_path, f"img{base_count}_base.png")
             cv2.imwrite(img_name, flipped_frame)
             base_count += 1
 
 def getFrame(frame_name):
     frame = picam2.capture_array()
     frame = cv2.undistort(frame, camera_matrix, dist_coeff)
-     # 修正色彩空間（RGB -> BGR）
+    # 修正色彩空間（RGB -> BGR）
     frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
     flipped_frame = cv2.flip(frame_bgr,0)
     # 使用 OpenCV 顯示影像

@@ -17,7 +17,7 @@ picam2.start()
 
 def showRealtimeImage(frame_name):
     base_count = 0
-    base_path = "./calibration/"
+    base_path = "./calibration/fixed_cam/"
 
     while True:
         frame = picam2.capture_array()
@@ -31,13 +31,13 @@ def showRealtimeImage(frame_name):
         if key == ord('q'):
             break
         elif key == ord('b'):
-            img_name = os.path.join(base_path, f"img{base_count}_transform.png")
+            img_name = os.path.join(base_path, f"img{base_count}.png")
             cv2.imwrite(img_name, flipped_frame)
             base_count += 1
 
 def getFrame(frame_name):
     frame = picam2.capture_array()
-    frame = cv2.undistort(frame, camera_matrix, dist_coeffs)
+    # frame = cv2.undistort(frame, camera_matrix, dist_coeffs)
      # 修正色彩空間（RGB -> BGR）
     frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
     flipped_frame = cv2.flip(frame_bgr,0)
