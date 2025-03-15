@@ -54,7 +54,7 @@ def get_mpp(image_path, chessboard_size, square_size, camera_matrix=None, dist_c
     print(f"mpp (Y方向): {mpp_y:.6f} mm/pixel")
     return (mpp_x + mpp_y) / 2  # 取平均值作為 mpp
 
-def detect_sphere_imprint(base_path, sample_path, min_radius=10, max_radius=100):
+def detect_sphere_imprint(base_path, sample_path, min_radius=30, max_radius=60):
     """
     使用霍夫圓變換偵測球體壓痕
     :param image_path: 壓痕影像的路徑
@@ -69,11 +69,26 @@ def detect_sphere_imprint(base_path, sample_path, min_radius=10, max_radius=100)
     gray = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
     
     # 進行高斯模糊，減少雜訊影響
-    gray_blurred = cv2.GaussianBlur(gray, (9, 9), 1)
-
+    gray_blurred = cv2.GaussianBlur(gray, (5, 5), 1)
+    cv2.imshow("gray_blurred",gray_blurred)
+    # **加入 Otsu 二值化**
+    _, binary = cv2.adaptiveThreshold(gray_blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)     # 如果大於 127 就等於 255，反之等於 0。
+    cv2.imshow("binary",binary)
+    # **加入形態學運算（膨脹 → 侵蝕）**
+    # kernel = np.ones((13, 13), np.uint8)  # 定義 5x5 內核
+    # binary = cv2.dilate(binary, kernel, iterations=1)  # 先膨脹，使白色區域擴展
+    # cv2.imshow("dilate",binary)
+    # binary = cv2.erode(binary, kernel, iterations=1)   # 再侵蝕，使邊界平滑
+    # v2.imshow("erode",binary)
     # 使用霍夫圓變換來偵測圓形壓痕
-    circles = cv2.HoughCircles(gray_blurred, cv2.HOUGH_GRADIENT, dp=1.2, minDist=20,
-                               param1=50, param2=30, minRadius=min_radius, maxRadius=max_radius)
+    # 圆心距：170 圆心距小于此值的圆不检测，以减小计算量
+    # canny阈值：图像二值化的参数，根据实际情况调整
+    # 投票数：一个圆需要至少包含多少个点，才认为这是一个圆
+    circles = cv2.HoughCircles(binary, cv2.HOUGH_GRADIENT, dp=1.2, minDist=10,
+                               param1=50, param2=10, minRadius=min_radius, maxRadius=max_radius)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    
     if circles is not None:
         circles = np.uint16(np.around(circles))
         best_circle = max(circles[0, :], key=lambda c: c[2])  # 取半徑最大的圓
@@ -93,7 +108,7 @@ def detect_sphere_imprint(base_path, sample_path, min_radius=10, max_radius=100)
         return x, y, r
     else:
         print("未偵測到圓形壓痕，請確認影像品質")
-        return None
+        return 0,0,0
 
 def compute_surface_gradients(cx, cy, r, img_path):
     """
@@ -121,8 +136,8 @@ def compute_surface_gradients(cx, cy, r, img_path):
 
 def create_rgb2gradient_dataset(camera_matrix, dist_coeffs,base_path,sample_path):
     # 計算 mpp
-    mpp_value = get_mpp("./calibration/img3_cali.png",  
-                    chessboard_size=(4, 4),     
+    mpp_value = get_mpp("./calibration/fixed_cam/img1.png",  
+                    chessboard_size=(6, 9),     
                     square_size=4,
                     camera_matrix=camera_matrix,     
                     dist_coeffs=dist_coeffs)
@@ -152,10 +167,10 @@ def create_rgb2gradient_dataset(camera_matrix, dist_coeffs,base_path,sample_path
     return dataset
 
 
-camera_matrix = np.load("./camera_matrix.npy")
-dist_coeffs = np.load("./dist_coeff.npy")
-base_path = "./imprint/al/cropped/img0_base.png"  # 替換為你的壓痕影像
-sample_path = "./imprint/al/cropped/img1.png" 
+camera_matrix = np.load("./camera_matrix_real.npy")
+dist_coeffs = np.load("./dist_coeff_real.npy")
+base_path = "./imprint/al_calib/cropped/img0.png"  # 替換為你的壓痕影像
+sample_path = "./imprint/al_calib/cropped/img1.png" 
 dataset = create_rgb2gradient_dataset(camera_matrix, dist_coeffs, base_path, sample_path)
 
 

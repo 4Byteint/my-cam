@@ -20,14 +20,16 @@ dist_coeff = np.load("./dist_coeff_real.npy")
 def showRealtimeImage(frame_name):
     base_count = 0
     base_path = "./imprint/al_calib/"
-
+    
+    
     while True:
         frame = picam2.capture_array()
         # 修正色彩空間（RGB -> BGR）
-        
+        h, w = frame.shape[:2]
+        newcameramtx, roi = cv2.getOptimalNewCameraMatrix(camera_matrix, dist_coeff, (w, h), 0.9, (w, h))
         frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         flipped_frame = cv2.flip(frame_bgr,0)
-        flipped_frame = cv2.undistort(flipped_frame, camera_matrix, dist_coeff)
+        flipped_frame = cv2.undistort(flipped_frame, camera_matrix, dist_coeff, None, newcameramtx)
         cv2.imshow(frame_name, flipped_frame)
         
         key = cv2.waitKey(1)
