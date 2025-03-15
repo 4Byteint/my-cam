@@ -37,8 +37,8 @@ ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, (w, h), 
 print('mtx: ',mtx)
 print('dist: ',dist)
 # save calibration results
-np.save('camera_matrix.npy', mtx)
-np.save('dist_coeff.npy', dist)
+np.save('camera_matrix_real.npy', mtx)
+np.save('dist_coeff_real.npy', dist)
 
 newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w, h), 0.9, (w, h))
 
@@ -52,5 +52,5 @@ for i in range(len(objpoints)):
     mean_error += error
 print(f"Reprojection Error: {mean_error / len(objpoints)}")
 
-cv.imwrite("calibresult_3.png", dst)
+cv.imwrite("calibresult_real.png", dst)
 print("Calibration completed successfully. Output saved as calibresult.png")

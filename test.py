@@ -16,8 +16,8 @@ picam2.start()
 
 
 def showRealtimeImage(frame_name):
-    base_count = 20
-    base_path = "./calibration/cam/"
+    base_count = 0
+    base_path = "./calibration/"
 
     while True:
         frame = picam2.capture_array()
@@ -31,7 +31,7 @@ def showRealtimeImage(frame_name):
         if key == ord('q'):
             break
         elif key == ord('b'):
-            img_name = os.path.join(base_path, f"img{base_count}.png")
+            img_name = os.path.join(base_path, f"img{base_count}_transform.png")
             cv2.imwrite(img_name, flipped_frame)
             base_count += 1
 

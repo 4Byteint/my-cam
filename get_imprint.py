@@ -14,16 +14,16 @@ picam2.set_controls({"AwbEnable": False, "ColourGains": (1.5, 1.0)})  # 1.7/0.7�
 picam2.set_controls({"ExposureValue": -0.5})  # +1 EV 提高亮度
 picam2.start()
 # 加載相機內部參數和畸變參數
-#camera_matrix = np.load("./camera_matrix.npy")
-#dist_coeffs = np.load("./dist_coeff.npy")
+camera_matrix = np.load("./camera_matrix_real.npy")
+dist_coeff = np.load("./dist_coeff_real.npy")
 
 def showRealtimeImage(frame_name):
     base_count = 0
-    base_path = "./imprint/"
+    base_path = "./calibration/"
 
     while True:
         frame = picam2.capture_array()
-        #frame = cv2.undistort(frame, camera_matrix, dist_coeffs)
+        frame = cv2.undistort(frame, camera_matrix, dist_coeff)
         # 修正色彩空間（RGB -> BGR）
         frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         flipped_frame = cv2.flip(frame_bgr,0)
@@ -39,7 +39,7 @@ def showRealtimeImage(frame_name):
 
 def getFrame(frame_name):
     frame = picam2.capture_array()
-    frame = cv2.undistort(frame, camera_matrix, dist_coeffs)
+    frame = cv2.undistort(frame, camera_matrix, dist_coeff)
      # 修正色彩空間（RGB -> BGR）
     frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
     flipped_frame = cv2.flip(frame_bgr,0)
