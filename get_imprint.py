@@ -19,21 +19,22 @@ dist_coeff = np.load("./dist_coeff_real.npy")
 
 def showRealtimeImage(frame_name):
     base_count = 0
-    base_path = "./imprint/al_calib"
+    base_path = "./imprint/al_calib/"
 
     while True:
         frame = picam2.capture_array()
-        frame = cv2.undistort(frame, camera_matrix, dist_coeff)
         # 修正色彩空間（RGB -> BGR）
+        
         frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         flipped_frame = cv2.flip(frame_bgr,0)
+        flipped_frame = cv2.undistort(flipped_frame, camera_matrix, dist_coeff)
         cv2.imshow(frame_name, flipped_frame)
         
         key = cv2.waitKey(1)
         if key == ord('q'):
             break
         elif key == ord('b'):
-            img_name = os.path.join(base_path, f"img{base_count}_base.png")
+            img_name = os.path.join(base_path, f"img{base_count}.png")
             cv2.imwrite(img_name, flipped_frame)
             base_count += 1
 

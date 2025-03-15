@@ -43,7 +43,7 @@ np.save('dist_coeff_real.npy', dist)
 newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w, h), 0.9, (w, h))
 
 # 讀取待校正的圖像
-img = cv.imread('./calibration/fixed_cam/img0.png')
+img = cv.imread('./calibration/fixed_cam/img2.png')
 dst = cv.undistort(img, mtx, dist, None, newcameramtx)
 mean_error = 0
 for i in range(len(objpoints)):
@@ -52,5 +52,5 @@ for i in range(len(objpoints)):
     mean_error += error
 print(f"Reprojection Error: {mean_error / len(objpoints)}")
 
-cv.imwrite("calibresult_real.png", dst)
+cv.imwrite("calibresult.png", dst)
 print("Calibration completed successfully. Output saved as calibresult.png")
