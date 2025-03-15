@@ -40,11 +40,13 @@ image = cv2.imread('./calibration/img0_transform.png')
 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
 # 進行二值化處理
-_, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
+_, thresh = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY)
 
 # 找輪廓
 contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
+cv2.drawContours(gray, contours, -1, (0, 255, 0), 2)
+# 顯示結果
+cv2.imshow('Contours', gray)
 # 遍歷輪廓，找出接近梯形的形狀
 for cnt in contours:
     # 近似多邊形
