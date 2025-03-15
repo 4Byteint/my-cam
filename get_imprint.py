@@ -23,10 +23,12 @@ def showRealtimeImage(frame_name):
 
     while True:
         frame = picam2.capture_array()
-        frame = cv2.undistort(frame, camera_matrix, dist_coeff)
+        h, w = frame.shape[:2]
+        newcameramtx, roi = cv2.getOptimalNewCameraMatrix(camera_matrix, dist_coeff, (w, h), 0.9, (w, h))
         # 修正色彩空間（RGB -> BGR）
         frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         flipped_frame = cv2.flip(frame_bgr,0)
+        flipped_frame = cv2.undistort(flipped_frame, camera_matrix, dist_coeff, None, newcameramtx)
         cv2.imshow(frame_name, flipped_frame)
         
         key = cv2.waitKey(1)
