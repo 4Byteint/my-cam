@@ -1,7 +1,7 @@
 import numpy as np
 import cv2 as cv
 import glob
-chessboard = (4, 4) 
+chessboard = (6, 9) 
 # termination criteria
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
@@ -22,7 +22,7 @@ for fname in images:
     if ret == True:
         print(f"Detected {len(corners) if ret else 0} corners in {fname}")
         objpoints.append(objp)
-        corners2 = cv.cornerSubPix(gray, corners, (5,5), (-1,-1), criteria)
+        corners2 = cv.cornerSubPix(gray, corners, (11,11), (-1,-1), criteria)
         imgpoints.append(corners2)
         # Draw and display the corners
         cv.drawChessboardCorners(img, (chessboard[0],chessboard[1]), corners2, ret)
@@ -43,7 +43,14 @@ np.save('dist_coeff.npy', dist)
 newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w, h), 0.9, (w, h))
 
 # 讀取待校正的圖像
-img = cv.imread('./calibration/fixed_cam/img1.png')
+img = cv.imread('./calibration/fixed_cam/img0.png')
 dst = cv.undistort(img, mtx, dist, None, newcameramtx)
-cv.imwrite("calibresult.png", dst)
+mean_error = 0
+for i in range(len(objpoints)):
+    imgpoints2, _ = cv.projectPoints(objpoints[i], rvecs[i], tvecs[i], mtx, dist)
+    error = cv.norm(imgpoints[i], imgpoints2, cv.NORM_L2) / len(imgpoints2)
+    mean_error += error
+print(f"Reprojection Error: {mean_error / len(objpoints)}")
+
+cv.imwrite("calibresult_3.png", dst)
 print("Calibration completed successfully. Output saved as calibresult.png")
