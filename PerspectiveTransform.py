@@ -23,8 +23,8 @@ def cal_perspective_params(img, points):
     
     return M, warped_img
 # 计算透视变换参数矩阵
-input_folder = './imprint/al_calib/'
-output_folder = './imprint/al_calib/cropped/'
+input_folder = './imprint/al/'
+output_folder = './imprint/al/transform/'
 # 確保輸出資料夾存在
 if not os.path.exists(output_folder):
     os.makedirs(output_folder)
