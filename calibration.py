@@ -10,7 +10,7 @@ objp[:,:2] = np.mgrid[0:chessboard[0],0:chessboard[1]].T.reshape(-1,2)
 # Arrays to store object points and image points from all the images.
 objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
-images = glob.glob('./calibration/fixed_cam/*.png')
+images = glob.glob('./calibration/fixed_cam2/*.png')
 for fname in images:
     img = cv.imread(fname)
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
@@ -37,13 +37,13 @@ ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, (w, h), 
 print('mtx: ',mtx)
 print('dist: ',dist)
 # save calibration results
-np.save('camera_matrix_real.npy', mtx)
-np.save('dist_coeff_real.npy', dist)
+#np.save('camera_matrix_real.npy', mtx)
+#np.save('dist_coeff_real.npy', dist)
 
 newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w, h), 0.9, (w, h))
 
 # 讀取待校正的圖像
-img = cv.imread('./calibration/fixed_cam/img5.png')
+img = cv.imread('./calibration/fixed_cam2/img5.png')
 dst = cv.undistort(img, mtx, dist, None, newcameramtx)
 mean_error = 0
 for i in range(len(objpoints)):
@@ -52,5 +52,5 @@ for i in range(len(objpoints)):
     mean_error += error
 print(f"Reprojection Error: {mean_error / len(objpoints)}")
 
-cv.imwrite("calibresult.png", dst)
+cv.imwrite("calibresult_cam.png", dst)
 print("Calibration completed successfully. Output saved as calibresult.png")
