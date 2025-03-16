@@ -88,7 +88,7 @@ for epoch in range(epochs):
 
 # =============== 5. 測試模型 ===============
 model.eval()
-X_test = torch.tensor([[300, 260,65,167]], dtype=torch.float32)
+X_test = torch.tensor([[232,273,78,134]], dtype=torch.float32)
 with torch.no_grad():
     predicted_gradient = model(X_test)
 print("Predicted Gradients (Gx, Gy):", predicted_gradient.detach().numpy())

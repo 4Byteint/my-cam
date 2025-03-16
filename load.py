@@ -55,7 +55,7 @@ def get_mpp(image_path, chessboard_size, square_size, camera_matrix=None, dist_c
     print(f"mpp (Y方向): {mpp_y:.6f} mm/pixel")
     return (mpp_x + mpp_y) / 2  # 取平均值作為 mpp
 
-def detect_sphere_imprint(base_path, sample_path, min_radius=25, max_radius=45):
+def detect_sphere_imprint(base_path, sample_path, min_radius=30, max_radius=60):
     """
     使用霍夫圓變換偵測球體壓痕
     :param image_path: 壓痕影像的路徑
@@ -72,14 +72,14 @@ def detect_sphere_imprint(base_path, sample_path, min_radius=25, max_radius=45):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     # 進行高斯模糊，減少雜訊影響
-    gray_blurred = cv2.GaussianBlur(gray, (9,9), 2)
+    gray_blurred = cv2.GaussianBlur(gray, (5,5), 2)
 
     # 使用霍夫圓變換來偵測圓形壓痕
     # miniDist:
     # param1: canny thershold
     # param2: hough 累積的 thershold 越小檢測到的圓越多
-    circles = cv2.HoughCircles(gray_blurred, cv2.HOUGH_GRADIENT, dp=1.2, minDist=100,
-                               param1=15, param2=20, minRadius=min_radius, maxRadius=max_radius)
+    circles = cv2.HoughCircles(gray_blurred, cv2.HOUGH_GRADIENT, dp=1.2, minDist=300,
+                               param1=50, param2=10, minRadius=min_radius, maxRadius=max_radius)
     if circles is not None:
         circles = np.uint16(np.around(circles))
         best_circle = max(circles[0, :], key=lambda c: c[2])  # 取半徑最大的圓
@@ -202,7 +202,7 @@ def create_rgb2gradient_dataset(base_path, sample_path):
     # # 計算梯度，只取半圓球內部
     Gx, Gy, mask = compute_surface_gradients(cx, cy, r, img.shape)
 
-    # 建立 lookup table
+    # # 建立 lookup table
     lut = lookup_table_dict(sample_path, Gx, Gy)
     #visualize_lut(lut)
     # 可視化
@@ -214,8 +214,8 @@ def create_rgb2gradient_dataset(base_path, sample_path):
     save_lut_csv(lut)
 
 # 設定影像路徑
-base_path = "./transform_img0_base.png"  # 替換為你的壓痕影像
-sample_path = "./transform_img2.png" 
+base_path = "./imprint/al/transform/img_base.png"  # 替換為你的壓痕影像
+sample_path = "./imprint/al/transform/img1.png" 
 
 # 產生 RGB 對應梯度的數據集
 dataset = create_rgb2gradient_dataset(base_path, sample_path)

@@ -69,11 +69,11 @@ def detect_sphere_imprint(base_path, sample_path, min_radius=30, max_radius=60):
     gray = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
     
     # 進行高斯模糊，減少雜訊影響
-    gray_blurred = cv2.GaussianBlur(gray, (5, 5), 1)
+    gray_blurred = cv2.GaussianBlur(gray, (5, 5), 2)
     cv2.imshow("gray_blurred",gray_blurred)
     # **加入 Otsu 二值化**
-    _, binary = cv2.adaptiveThreshold(gray_blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)     # 如果大於 127 就等於 255，反之等於 0。
-    cv2.imshow("binary",binary)
+    # _, binary = cv2.threshold(gray_blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)    
+    # cv2.imshow("binary",binary)
     # **加入形態學運算（膨脹 → 侵蝕）**
     # kernel = np.ones((13, 13), np.uint8)  # 定義 5x5 內核
     # binary = cv2.dilate(binary, kernel, iterations=1)  # 先膨脹，使白色區域擴展
@@ -81,10 +81,10 @@ def detect_sphere_imprint(base_path, sample_path, min_radius=30, max_radius=60):
     # binary = cv2.erode(binary, kernel, iterations=1)   # 再侵蝕，使邊界平滑
     # v2.imshow("erode",binary)
     # 使用霍夫圓變換來偵測圓形壓痕
-    # 圆心距：170 圆心距小于此值的圆不检测，以减小计算量
-    # canny阈值：图像二值化的参数，根据实际情况调整
-    # 投票数：一个圆需要至少包含多少个点，才认为这是一个圆
-    circles = cv2.HoughCircles(binary, cv2.HOUGH_GRADIENT, dp=1.2, minDist=10,
+    # minDist: 圆心距：170 圆心距小于此值的圆不检测，以减小计算量
+    # param1: canny阈值：图像二值化的参数，根据实际情况调整
+    # param2: 投票数：一个圆需要至少包含多少个点，才认为这是一个圆
+    circles = cv2.HoughCircles(gray_blurred, cv2.HOUGH_GRADIENT, dp=1.2, minDist=300,
                                param1=50, param2=10, minRadius=min_radius, maxRadius=max_radius)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
@@ -110,6 +110,48 @@ def detect_sphere_imprint(base_path, sample_path, min_radius=30, max_radius=60):
         print("未偵測到圓形壓痕，請確認影像品質")
         return 0,0,0
 
+
+def test_circle(base_path, sample_path):
+
+    # 讀取影像
+    base_img = cv2.imread(base_path)
+    sample_img = cv2.imread(sample_path)
+    diff = cv2.absdiff(base_img, sample_img)
+    gray = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
+    cv2.imshow("diff", gray)
+    # # Canny 邊緣檢測
+    # edges = cv2.Canny(gray, 10, 100)
+    # cv2.imshow("edges", edges)
+    # **加入 Otsu 二值化**
+    _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)    
+    cv2.imshow("binary",binary)
+    # 偵測輪廓
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # 2️⃣ 繪製獨立輪廓（藍色）
+    sample_copy=sample_img.copy()
+    cv2.drawContours(sample_copy, contours, -1, (255, 0, 0), 2)  # 畫出所有原始輪廓（藍色）
+    cv2.imshow("contour",sample_copy)
+    # 合併所有輪廓成一個區域
+    all_points = np.vstack(contours)  # 把所有輪廓的點合併
+    hull = cv2.convexHull(all_points)  # 計算凸包（Convex Hull）
+    # 4️⃣ 繪製凸包（紅色）
+    cv2.drawContours(sample_copy, [hull], -1, (0, 0, 255), 2)  # 畫出合併後的輪廓（紅色）
+    cv2.imshow("contour_2gether",sample_copy)
+    # 擬合最小外接圓
+    (x, y), radius = cv2.minEnclosingCircle(hull)
+    center = (int(x), int(y))
+    radius = int(radius)
+
+    # 繪製合併後的大圓
+    cv2.circle(sample_img, center, radius, (0, 255, 0), 2)  # 畫圓
+    cv2.circle(sample_img, center, 2, (0, 0, 255), 3)  # 畫圓心
+    cv2.imshow("Detected Circles", sample_img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
+
+
 def compute_surface_gradients(cx, cy, r, img_path):
     """
     計算半球狀壓痕的表面梯度 (Gx, Gy)
@@ -118,30 +160,46 @@ def compute_surface_gradients(cx, cy, r, img_path):
     :return: 梯度場 (Gx, Gy)
     """
     img = cv2.imread(img_path)
-    (height, width) = img.shape[:2]
-    # 生成像素座標網格
-    X, Y = np.meshgrid(np.arange(width) - cx, np.arange(height) - cy)
-
-    # 計算球體的表面 Z 座標
-    Z = np.sqrt(r**2 - X**2 - Y**2 + 1e-6)  # 避免 sqrt 負數
-
-    # 建立遮罩：只選擇球體內部區域
-    mask = (X**2 + Y**2 < r**2) & (Z > 0)
-
+    H, W = img[:2]
+    X, Y = np.meshgrid(np.arange(W) , np.arange(H) )
+  
+    # 轉換座標，使 Xc, Yc 相對於圓心
+    Xc = X - cx
+    Yc = Y - cy
+    # 建立遮罩，只取半球內的像素
+    mask = (Xc**2 + Yc**2 < r**2)
+    # 計算球體 Z 值，確保 Z > 0（半圓球區域）
+    Z = np.sqrt(np.maximum(r**2 - Xc**2 - Yc**2, 0) + 1e-6)  # 避免 sqrt 負數
+   
     # 計算表面梯度，只對半圓球區域有效
-    Gx = np.where(mask, X / Z, 0)  # 非半圓球區域設為 0
-    Gy = np.where(mask, Y / Z, 0)
+    Gx = np.where(mask, Xc / Z, 0)
+    Gy = np.where(mask, Yc / Z, 0)
+    Gx[Z < 1e-2] = 0 # 挑出在 Gx 中 Z 太小的設為 0，保證邊界上的 Gx, Gy 不會因為 Z ≈ 0 產生無窮大
+    Gy[Z < 1e-2] = 0 # 避免邊界處的計算異常
+    print("Z min:", np.min(Z))
+    print("Z max:", np.max(Z))
+    print("X 範圍:", np.min(X), np.max(X))
+    print("Y 範圍:", np.min(Y), np.max(Y))
+    print("Gx 範圍:", np.min(Gx), np.max(Gx))
+    print("Gy 範圍:", np.min(Gy), np.max(Gy))
+    import matplotlib.pyplot as plt
 
-    return Gx, Gy, mask
+    plt.figure(figsize=(8, 8))
+    plt.quiver(X[::5, ::5], Y[::5, ::5], Gx[::5, ::5], Gy[::5, ::5], scale=50, color="red")
+    plt.title("Gradient Field")
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.grid()
+    plt.show()
 
-def create_rgb2gradient_dataset(camera_matrix, dist_coeffs,base_path,sample_path):
+def create_rgb2gradient_dataset(base_path,sample_path):
     # 計算 mpp
-    mpp_value = get_mpp("./calibration/fixed_cam/img1.png",  
-                    chessboard_size=(6, 9),     
-                    square_size=4,
-                    camera_matrix=camera_matrix,     
-                    dist_coeffs=dist_coeffs)
-    print(f"最終 mpp: {mpp_value:.6f} mm/pixel")
+    # mpp_value = get_mpp("./calibration/fixed_cam/img1.png",  
+    #                 chessboard_size=(6, 9),     
+    #                 square_size=4,
+    #                 camera_matrix=camera_matrix,     
+    #                 dist_coeffs=dist_coeffs)
+    # print(f"最終 mpp: {mpp_value:.6f} mm/pixel")
 
 # ############################################################
 # # 壓痕影像偵測
@@ -150,7 +208,7 @@ def create_rgb2gradient_dataset(camera_matrix, dist_coeffs,base_path,sample_path
 
 # # ############################################################
 # 計算梯度
-    Gx, Gy, mask = compute_surface_gradients(cx, cy, mpp_value, sample_path)
+    Gx, Gy, mask = compute_surface_gradients(cx, cy, r, sample_path)
     # 建立數據集（RGB 值 + 梯度）
     img = cv2.imread(sample_path)
     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -170,7 +228,7 @@ def create_rgb2gradient_dataset(camera_matrix, dist_coeffs,base_path,sample_path
 base_path = "./imprint/al/transform/img_base.png"  # 替換為你的壓痕影像
 sample_path = "./imprint/al/transform/img1.png" 
 dataset = create_rgb2gradient_dataset(base_path, sample_path)
-
+# test_circle(base_path, sample_path)
 
 
 
