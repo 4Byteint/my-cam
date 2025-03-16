@@ -167,11 +167,9 @@ def create_rgb2gradient_dataset(camera_matrix, dist_coeffs,base_path,sample_path
     return dataset
 
 
-camera_matrix = np.load("./camera_matrix_real.npy")
-dist_coeffs = np.load("./dist_coeff_real.npy")
-base_path = "./imprint/al_calib/cropped/img0.png"  # 替換為你的壓痕影像
-sample_path = "./imprint/al_calib/cropped/img1.png" 
-dataset = create_rgb2gradient_dataset(camera_matrix, dist_coeffs, base_path, sample_path)
+base_path = "./imprint/al/transform/img_base.png"  # 替換為你的壓痕影像
+sample_path = "./imprint/al/transform/img1.png" 
+dataset = create_rgb2gradient_dataset(base_path, sample_path)
 
 
 
