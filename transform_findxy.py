@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 
 # 讀取圖像
-image = cv2.imread('./transform/img0_transform.png')
+image = cv2.imread("F:/img0_transform.png")
 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
 # 進行二值化處理
