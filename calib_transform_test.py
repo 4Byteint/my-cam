@@ -140,7 +140,16 @@ def apply_perspective_transform(image, sorted_points):
     cv2.imshow("warped_image",warped_image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-    return warped_image
+    
+    # 計算每條邊的縮放比例
+    scale_top = square_size / width_top
+    scale_bottom = square_size / width_bottom
+    scale_left = square_size / height_left
+    scale_right = square_size / height_right
+    print(f"縮放比例 - 上邊: {scale_top:.4f}, 下邊: {scale_bottom:.4f}, 左邊: {scale_left:.4f}, 右邊: {scale_right:.4f}")
+    scale_values = np.array([scale_top, scale_bottom, scale_left, scale_right])
+    np.save("scale_ratios.npy", scale_values)
+    return warped_image, H, 
 
 def is_square(points, tolerance=5):
     """
@@ -160,8 +169,15 @@ def is_square(points, tolerance=5):
     side2 = np.linalg.norm(p3 - p2)  # 右邊
     side3 = np.linalg.norm(p3 - p4)  # 下邊
     side4 = np.linalg.norm(p4 - p1)  # 左邊
-    print(side1,side2,side3,side4) 
+    print(side1,side2,side3,side4)
+    if (abs(side1-side3) < tolerance or 
+        abs(side2-side4) < tolerance or
+        abs(side1-side2) < tolerance or
+        abs(side3-side4) < tolerance):
+        return True
+    else: return False
 
+######################################
 # 计算透视变换参数矩阵
 img_path= 'F:/img0_transform.png'
 
@@ -170,9 +186,8 @@ points = np.array([(136, 0), (508, 0), (457, 345), (203, 348)]) # 框偵測的�
 img = cv2.imread(img_path)
 cropped_img = ROI(img, points)
 sorted_points = detect_points(cropped_img)
-transformed_img = apply_perspective_transform(cropped_img, sorted_points)
+transformed_img, H = apply_perspective_transform(cropped_img, sorted_points)
 inner_square_pts = detect_points(transformed_img)
-is_square(inner_square_pts)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
-######################################
+print("Is target squared? Ans:",is_square(inner_square_pts))
+if is_square(inner_square_pts):
+    np.save("perspective_matrix.npy", H)
