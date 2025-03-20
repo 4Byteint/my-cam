@@ -170,6 +170,7 @@ def is_square(points, tolerance=5):
     side3 = np.linalg.norm(p3 - p4)  # 下邊
     side4 = np.linalg.norm(p4 - p1)  # 左邊
     print(side1,side2,side3,side4)
+    tolerance = 
     if (abs(side1-side3) < tolerance or 
         abs(side2-side4) < tolerance or
         abs(side1-side2) < tolerance or

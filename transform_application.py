@@ -44,15 +44,19 @@ def apply_persepctive(image, points, w, h):
     # 計算新影像的尺寸
     max_x = np.max(transformed_points[:, 0, 0]) # 第三點x
     max_y = np.max(transformed_points[:, 0, 1]) # 第三點y
-    
-    new_width = int(max_x - min_x)
-    new_height = int(max_y - min_y)
+    # 計算 min_x 和 min_y，確保影像不會有負數座標
+    offset_x = -min_x if min_x < 0 else 0
+    offset_y = -min_y if min_y < 0 else 0
+
+    new_width = int(max_x + offset_x)  # max_x 不變，只加 offset_x
+    new_height = int(max_y + offset_y)  # max_y 不變，只加 offset_y
+
     print(f"new_height: {new_width}, new_height: {new_height}")
     #print(min_x, max_x, min_y, max_y)
     # **調整透視變換矩陣 H，使影像不固定在 (0,0)**
     translation_matrix = np.array([
-        [1, 0, -min_x],  # X 軸偏移
-        [0, 1, -min_y],  # Y 軸偏移
+        [1, 0, offset_x],  # X 軸偏移
+        [0, 1, offset_y],  # Y 軸偏移
         [0, 0, 1]
     ], dtype=np.float32)
 
@@ -62,7 +66,6 @@ def apply_persepctive(image, points, w, h):
     # 執行透視變換
     warped_image = cv2.warpPerspective(image, H_translated, (new_width, new_height))
 
-    
     return warped_image
 
 

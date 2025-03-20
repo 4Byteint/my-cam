@@ -75,7 +75,7 @@ def detect_sphere_imprint(base_path, sample_path, min_radius=30, max_radius=60):
     gray_blurred = cv2.GaussianBlur(gray, (5,5), 2)
 
     # 使用霍夫圓變換來偵測圓形壓痕
-    # miniDist:
+    # miniDist: 
     # param1: canny thershold
     # param2: hough 累積的 thershold 越小檢測到的圓越多
     circles = cv2.HoughCircles(gray_blurred, cv2.HOUGH_GRADIENT, dp=1.2, minDist=300,
