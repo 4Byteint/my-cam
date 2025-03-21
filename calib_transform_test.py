@@ -27,6 +27,7 @@ def ROI(img, points):
     # 裁剪白色背景的 ROI
     cropped_dst_white = dst_white[y:y+h, x:x+w]
     cv2.imshow("cropped_dst_white", cropped_dst_white)
+    cv2.imshow("img", img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     return cropped_dst_white
@@ -118,38 +119,29 @@ def apply_perspective_transform(image, sorted_points):
     # 計算透視變換後的寬度和高度
     width_top = np.linalg.norm(sorted_points[1] - sorted_points[0])  # 右上 - 左上
     width_bottom = np.linalg.norm(sorted_points[2] - sorted_points[3])  # 右下 - 左下
-    width = max(int(width_top), int(width_bottom))  # 取較大值
+    width = int((width_top + width_bottom)//2)
 
     height_left = np.linalg.norm(sorted_points[3] - sorted_points[0])  # 左下 - 左上
     height_right = np.linalg.norm(sorted_points[2] - sorted_points[1])  # 右下 - 右上
-    height = max(int(height_left), int(height_right))  # 取較大值
-    square_size = max(width, height)
+    height = int((height_left + height_right)//2)
+    
     # 定義變換後的四個點 (標準矩形)
     dst_points = np.array([
         [0, 0],          # 左上角
-        [square_size-1, 0],    # 右上角
-        [square_size-1, square_size-1],  # 右下角
-        [0, square_size-1],   # 左下角
+        [400-1, 0],    # 右上角
+        [400-1, 500-1],  # 右下角
+        [0, 500-1],   # 左下角
     ], dtype=np.float32)
 
     # 計算透視變換矩陣
     H = cv2.getPerspectiveTransform(sorted_points, dst_points)
 
     # 應用透視變換
-    warped_image = cv2.warpPerspective(image, H, (square_size, square_size))
+    warped_image = cv2.warpPerspective(image, H, (400, 500))
     cv2.imshow("warped_image",warped_image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-    
-    # 計算每條邊的縮放比例
-    scale_top = square_size / width_top
-    scale_bottom = square_size / width_bottom
-    scale_left = square_size / height_left
-    scale_right = square_size / height_right
-    print(f"縮放比例 - 上邊: {scale_top:.4f}, 下邊: {scale_bottom:.4f}, 左邊: {scale_left:.4f}, 右邊: {scale_right:.4f}")
-    scale_values = np.array([scale_top, scale_bottom, scale_left, scale_right])
-    np.save("scale_ratios.npy", scale_values)
-    return warped_image, H, 
+    return warped_image, H
 
 def is_square(points, tolerance=5):
     """
@@ -162,7 +154,7 @@ def is_square(points, tolerance=5):
         return False
 
     # 取四個點
-    p1, p2, p3, p4 = points  # 左上、右上、左下、右下
+    p1, p2, p3, p4 = points  # 左上、右上、右下、左下
 
     # 計算四條邊長
     side1 = np.linalg.norm(p2 - p1)  # 上邊
@@ -170,7 +162,6 @@ def is_square(points, tolerance=5):
     side3 = np.linalg.norm(p3 - p4)  # 下邊
     side4 = np.linalg.norm(p4 - p1)  # 左邊
     print(side1,side2,side3,side4)
-    tolerance = 
     if (abs(side1-side3) < tolerance or 
         abs(side2-side4) < tolerance or
         abs(side1-side2) < tolerance or
