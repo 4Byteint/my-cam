@@ -16,7 +16,7 @@ picam2.start()
 
 def showRealtimeImage(frame_name):
     base_count = 0
-    base_path = "./transform/"
+    base_path = "./calibration/"
     mtx = np.load('camera_matrix_real.npy')
     dist = np.load('dist_coeff_real.npy')
     
