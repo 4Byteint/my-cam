@@ -56,7 +56,7 @@ def get_mpp(image_path, chessboard_size, square_size, camera_matrix=None, dist_c
     print(f"mpp (Y方向): {mpp_y:.6f} mm/pixel")
     return (mpp_x + mpp_y) / 2  # 取平均值作為 mpp
 
-def batch_detect_sphere_imprints(base_dir, sample_dir, output_dir):
+def detect_sphere_imprints(base_path, sample_path):
     """
     使用霍夫圓變換偵測球體壓痕
     :param image_path: 壓痕影像的路徑
@@ -64,22 +64,6 @@ def batch_detect_sphere_imprints(base_dir, sample_dir, output_dir):
     :param max_radius: 可調整的最大半徑（像素）
     :return: 壓痕的圓心座標 (x, y) 和半徑 r
     """
-    os.makedirs(output_dir, exist_ok=True)
-
-    base_files = sorted(os.listdir(base_dir))
-    sample_files = sorted(os.listdir(sample_dir))
-
-    for base_file, sample_file in zip(base_files, sample_files):
-        base_path = os.path.join(base_dir, base_file)
-        sample_path = os.path.join(sample_dir, sample_file)
-
-        # 讀取影像
-        base_img = cv2.imread(base_path)
-        sample_img = cv2.imread(sample_path)
-
-        if base_img is None or sample_img is None:
-            print(f"無法讀取：{base_file} 或 {sample_file}")
-            continue
     # 讀取影像並轉換為灰階
     base_img = cv2.imread(base_path)
     sample_img = cv2.imread(sample_path)
@@ -125,9 +109,6 @@ def batch_detect_sphere_imprints(base_dir, sample_dir, output_dir):
         cv2.imshow("Detected Circles", sample_img)
         cv2.waitKey(1000)
         cv2.destroyAllWindows()
-        # 儲存結果影像
-        output_path = os.path.join(output_dir, sample_file)
-        cv2.imwrite(output_path, sample_img)
         return x, y, r
     else:
         print("未偵測到圓形壓痕，請確認影像品質")
@@ -244,7 +225,6 @@ def compute_surface_gradients(cx, cy, r, img_shape):
     print("Y 範圍:", np.min(Y), np.max(Y))
     print("Gx 範圍:", np.min(Gx), np.max(Gx))
     print("Gy 範圍:", np.min(Gy), np.max(Gy))
-    import matplotlib.pyplot as plt
 
     plt.figure(figsize=(8, 8))
     plt.quiver(X[::5, ::5], Y[::5, ::5], Gx[::5, ::5], Gy[::5, ::5], scale=50, color="red")
@@ -255,24 +235,58 @@ def compute_surface_gradients(cx, cy, r, img_shape):
     plt.show()
 
     return Gx, Gy, mask
-def lookup_table_dict(sample_path, Gx, Gy):
+def lookup_table_dict(sample_path, Gx, Gy, image_id):
+    import cv2
+    import numpy as np
+
     img = cv2.imread(sample_path)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     H, W = img.shape[:2]
-    X, Y = np.meshgrid(np.arange(W) , np.arange(H) )
-    R = img[:, :, 0]
-    G = img[:, :, 1]
-    dtype = [('x', 'i4'), ('y', 'i4'), ('R', 'i4'), ('G', 'i4'), ('Gx', 'f4'), ('Gy', 'f4')]
-    lut = np.zeros(H*W, dtype=dtype)
-    # 填充 Lookup Table
-    # 將所有數據填入 lookup table
-    lut['x'] = X.flatten()
-    lut['y'] = Y.flatten()
-    lut['R'] = R.flatten()
-    lut['G'] = G.flatten()
-    lut['Gx'] = Gx.flatten()
-    lut['Gy'] = Gy.flatten()
-    return lut
+
+    # 擷取 RGB 通道
+    B, G, R = img[:, :, 0], img[:, :, 1], img[:, :, 2]
+
+    # 建立座標網格
+    X, Y = np.meshgrid(np.arange(W), np.arange(H))
+
+    data = {
+        'image_id': image_id,
+        'x': X.flatten(),
+        'y': Y.flatten(),
+        'R': R.flatten(),
+        'G': G.flatten(),
+        'B': B.flatten(),
+        'Gx': Gx.flatten(),
+        'Gy': Gy.flatten()
+    }
+    return pd.DataFrame(data)
+
+
+    # # 定義 dtype 格式（加了 B）
+    # dtype = [
+        
+    #     ('x', 'i4'), 
+    #     ('y', 'i4'), 
+    #     ('R', 'i4'), 
+    #     ('G', 'i4'), 
+    #     ('B', 'i4'),
+    #     ('Gx', 'f4'), 
+    #     ('Gy', 'f4')
+    # ]
+
+    # lut = np.zeros(H * W, dtype=dtype)
+
+    # # 填入資料
+    
+    # lut['x'] = X.flatten()
+    # lut['y'] = Y.flatten()
+    # lut['R'] = R.flatten()
+    # lut['G'] = G.flatten()
+    # lut['B'] = B.flatten()
+    # lut['Gx'] = Gx.flatten()
+    # lut['Gy'] = Gy.flatten()
+
+    # return lut
+
 
 def visualize_gradient_heatmap(Gx, Gy):
     fig, ax = plt.subplots(1, 2, figsize=(12, 5))
@@ -290,16 +304,17 @@ def query_lut(lut, x_query, y_query):
         print(f"查詢座標 ({x_query}, {y_query})")
         print(f"R: {result['R'][0]}")
         print(f"G: {result['G'][0]}")
-        print(f"Gx: {result['Gx'][0]:.10f}")  # 顯示 10 位小數
-        print(f"Gy: {result['Gy'][0]:.10f}")  # 顯示 10 位小數
+        print(f"B: {result['B'][0]}")
+        print(f"Gx: {result['Gx'][0]:.10f}")
+        print(f"Gy: {result['Gy'][0]:.10f}")
     else:
         print("未找到對應座標")
+        
 def save_lut_csv(lut, filename="lookup_table.csv"):
     df = pd.DataFrame(lut)
     df.to_csv(filename, index=False)
     print(f"LUT 已儲存為 {filename}")
-
-
+    
 def create_rgb2gradient_dataset(base_path, sample_path):
     """
     讀取影像，過濾背景，只儲存半圓球的 RGB + 梯度數據
@@ -309,21 +324,21 @@ def create_rgb2gradient_dataset(base_path, sample_path):
     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     # 偵測球體
-    #cx, cy, r = detect_sphere_imprint(base_path, sample_path)
+    cx, cy, r = batch_detect_sphere_imprints_single_base(base_path, sample_path)
 
-    # # 計算梯度，只取半圓球內部
-    # Gx, Gy, mask = compute_surface_gradients(cx, cy, r, img.shape)
+    # 計算梯度，只取半圓球內部
+    Gx, Gy, mask = compute_surface_gradients(cx, cy, r, img.shape)
 
-    # # 建立 lookup table
-    # lut = lookup_table_dict(sample_path, Gx, Gy)
-    # #visualize_lut(lut)
-    # # 可視化
-    # visualize_gradient_heatmap(Gx, Gy)
+    # 建立 lookup table
+    lut = lookup_table_dict(sample_path, Gx, Gy)
     
-    # # 查詢
-    # x_query, y_query = 300, 260
-    # query_lut(lut, x_query, y_query)
-    # save_lut_csv(lut)
+    # 可視化
+    visualize_gradient_heatmap(Gx, Gy)
+    
+    # 查詢
+    x_query, y_query = 300, 260
+    query_lut(lut, x_query, y_query)
+    save_lut_csv(lut)
 
 # 設定影像路徑
 # base_path = "./imprint/al_RGB/transform/img0_base.png"  # 替換為你的壓痕影像
@@ -334,6 +349,5 @@ def create_rgb2gradient_dataset(base_path, sample_path):
 #####################################################################
 input_folder = './imprint/al_RGB/transform/'
 output_folder = './imprint/al_RGB/transform/circles/'
-os.makedirs(output_folder, exist_ok=True)
 #points = np.array([(136, 0), (508, 0), (457, 345), (203, 348)]) # 框偵測的四個點
 batch_detect_sphere_imprints_single_base(input_folder, output_folder)
