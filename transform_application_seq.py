@@ -64,8 +64,8 @@ def threshold_OTSU_method(src):
 
 
 #####################################################################
-input_folder = './imprint/al_RGB/'
-output_folder = './imprint/al_RGB/transform/'
+input_folder = './imprint/al_RGB_calib/'
+output_folder = './imprint/al_RGB_calib/transform/'
 os.makedirs(output_folder, exist_ok=True)
 points = np.array([(136, 0), (508, 0), (457, 345), (203, 348)]) # 框偵測的四個點
 
@@ -85,8 +85,3 @@ for filename in os.listdir(input_folder):
         cv2.imwrite(output_path, warped_image)
         print(f"已儲存：{output_path}")
 
-cv2.imshow("cropped_img", cropped_img)
-cv2.imshow("warped_image", warped_image)
-
-cv2.waitKey(0)
-cv2.destroyAllWindows()

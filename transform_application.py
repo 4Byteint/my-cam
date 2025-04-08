@@ -63,7 +63,7 @@ def threshold_OTSU_method(src):
 
 
 #####################################################################
-img_path = './imprint/al_RGB/img0_transform.png'
+img_path = './imprint/al_grip/img0.png'
 #"F:/img1_transform.png"
 img = cv2.imread(img_path)
 points = np.array([(136, 0), (508, 0), (457, 345), (203, 348)]) # 框偵測的四個點
@@ -72,6 +72,6 @@ warped_image = apply_persepctive(cropped_img, points)
 #threshold_OTSU_method(warped_image)
 cv2.imshow("cropped_img", cropped_img)
 cv2.imshow("warped_image", warped_image)
-
+cv2.imwrite("nntest_image.png", warped_image)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
