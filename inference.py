@@ -138,6 +138,114 @@ def visualize_gradients(gradient_magnitude, gradient_direction, original_img, ou
     visualization_time = time.time() - start_time
     print(f"可視化時間: {visualization_time:.2f} 秒")
 
+def analyze_gradient_directions(gx_values, gy_values, original_img, output_name="gradient_analysis"):
+    """
+    分析梯度方向，找出梯度方向差異大且兩側梯度大小相似的區域
+    
+    Args:
+        gx_values (numpy.ndarray): Gx 梯度值
+        gy_values (numpy.ndarray): Gy 梯度值
+        original_img (numpy.ndarray): 原始圖片
+        output_name (str): 輸出文件名前綴
+    """
+    height, width = gx_values.shape
+    
+    # 計算梯度大小和方向
+    gradient_magnitude = np.sqrt(gx_values**2 + gy_values**2)
+    directions = np.arctan2(gy_values, gx_values)
+    
+    # 計算梯度大小的閾值（使用梯度大小的均值作為參考）
+    magnitude_threshold = np.mean(gradient_magnitude)
+    
+    # 創建一個掩碼來標記符合條件的區域
+    gradient_mask = np.zeros((height, width), dtype=np.uint8)
+    
+    # 設定鄰域大小和相似度閾值
+    neighborhood_size = 5
+    magnitude_similarity_threshold = 0.2  # 梯度大小相似度閾值（20%差異）
+    
+    # 遍歷每個像素（除了邊界）
+    for y in range(neighborhood_size, height - neighborhood_size):
+        for x in range(neighborhood_size, width - neighborhood_size):
+            current_magnitude = gradient_magnitude[y, x]
+            
+            # 只考慮當前像素梯度大小超過閾值的情況
+            if current_magnitude > magnitude_threshold:
+                current_direction = directions[y, x]
+                
+                # 檢查鄰域內的像素
+                for dy in range(-neighborhood_size, neighborhood_size + 1):
+                    for dx in range(-neighborhood_size, neighborhood_size + 1):
+                        if dx == 0 and dy == 0:
+                            continue
+                            
+                        neighbor_y = y + dy
+                        neighbor_x = x + dx
+                        
+                        neighbor_magnitude = gradient_magnitude[neighbor_y, neighbor_x]
+                        
+                        # 檢查梯度大小是否相似
+                        magnitude_ratio = min(current_magnitude, neighbor_magnitude) / max(current_magnitude, neighbor_magnitude)
+                        
+                        if magnitude_ratio > (1 - magnitude_similarity_threshold):
+                            # 計算兩個方向之間的夾角
+                            neighbor_direction = directions[neighbor_y, neighbor_x]
+                            angle_diff = abs(current_direction - neighbor_direction)
+                            
+                            # 如果夾角大於90度
+                            if angle_diff > np.pi/2:
+                                # 檢查是否在兩側都有相似大小的梯度
+                                opposite_y = y - dy
+                                opposite_x = x - dx
+                                
+                                if (0 <= opposite_y < height and 0 <= opposite_x < width):
+                                    opposite_magnitude = gradient_magnitude[opposite_y, opposite_x]
+                                    opposite_ratio = min(current_magnitude, opposite_magnitude) / max(current_magnitude, opposite_magnitude)
+                                    
+                                    if opposite_ratio > (1 - magnitude_similarity_threshold):
+                                        gradient_mask[y, x] = 255
+    
+    # 可視化結果
+    plt.figure(figsize=(20, 5))
+    
+    # 原始圖片
+    plt.subplot(141)
+    plt.imshow(cv2.cvtColor(original_img, cv2.COLOR_BGR2RGB))
+    plt.title('Original Image')
+    plt.axis('off')
+    
+    # 梯度大小圖
+    plt.subplot(142)
+    plt.imshow(gradient_magnitude, cmap='viridis')
+    plt.colorbar()
+    plt.title('Gradient Magnitude')
+    plt.axis('off')
+    
+    # 方向差異的區域
+    plt.subplot(143)
+    plt.imshow(gradient_mask, cmap='gray')
+    plt.title('Gradient Direction Difference')
+    plt.axis('off')
+    
+    # 疊加顯示
+    plt.subplot(144)
+    overlay = cv2.cvtColor(original_img, cv2.COLOR_BGR2RGB).copy()
+    overlay[gradient_mask == 255] = [255, 0, 0]  # 用紅色標記符合條件的區域
+    plt.imshow(overlay)
+    plt.title('Overlay Result')
+    plt.axis('off')
+    
+    plt.tight_layout()
+    plt.savefig(f"{output_name}_analysis.png", bbox_inches='tight', dpi=300)
+    plt.close()
+    
+    # 保存掩碼
+    cv2.imwrite(f"{output_name}_mask.png", gradient_mask)
+    
+    print(f"分析結果已保存為：{output_name}_analysis.png 和 {output_name}_mask.png")
+    
+    return gradient_mask
+
 if __name__ == "__main__":
     # 測試圖片處理
     total_start_time = time.time()
@@ -146,6 +254,11 @@ if __name__ == "__main__":
     try:
         gradient_magnitude, gradient_direction, original_img = process_image(image_path)
         visualize_gradients(gradient_magnitude, gradient_direction, original_img, output_name)
+        
+        # 分析梯度方向
+        gx_values = np.cos(gradient_direction) * gradient_magnitude
+        gy_values = np.sin(gradient_direction) * gradient_magnitude
+        analyze_gradient_directions(gx_values, gy_values, original_img, "gradient_direction_analysis")
         
         total_time = time.time() - total_start_time
         print(f"總運行時間: {total_time:.2f} 秒")

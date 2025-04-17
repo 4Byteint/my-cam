@@ -69,3 +69,4 @@ plt.legend()
 plt.savefig('pca_result_1.png', bbox_inches='tight', pad_inches=0)
 plt.close()
 
+ㄖ

@@ -34,11 +34,13 @@ def apply_persepctive(image, points):
     """
     # 轉換點為齊次座標
     points = np.array(points, dtype=np.float32).reshape(-1, 1, 2) 
-    warped_image = cv2.warpPerspective(image, H, (200, 250))
+    warped_image = cv2.warpPerspective(image, H, (200, 250)) # (width, height)
+    # resize到目標大小
+    resized_image = cv2.resize(warped_image, (128, 160)) # (width, height)
     # 如果你想轉換回來影像的時候可以用
     # H_inv = np.linalg.inv(H_translated)
     # warped_image2 = cv2.warpPerspective(warped_image, H_inv, (w, h))
-    return warped_image
+    return resized_image
 
 def threshold_OTSU_method(src):
     image = np.array(src)
@@ -64,8 +66,8 @@ def threshold_OTSU_method(src):
 
 
 #####################################################################
-input_folder = './imprint/al_RGB_calib/'
-output_folder = './imprint/al_RGB_calib/transform/'
+input_folder = './imprint/dataset.label/original_images'
+output_folder = os.path.join(input_folder, 'transform')
 os.makedirs(output_folder, exist_ok=True)
 points = np.array([(136, 0), (508, 0), (457, 345), (203, 348)]) # 框偵測的四個點
 
@@ -79,8 +81,11 @@ for filename in os.listdir(input_folder):
             continue
 
         cropped_img = ROI(img, points)
+        # cv2.imshow("cropped_img", cropped_img)
         warped_image = apply_persepctive(cropped_img, points)
-
+        # cv2.imshow("warped_image", warped_image)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
         output_path = os.path.join(output_folder, filename)
         cv2.imwrite(output_path, warped_image)
         print(f"已儲存：{output_path}")
