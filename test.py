@@ -10,15 +10,15 @@ camera_config = picam2.create_still_configuration(main={"size":(640,480)})  # �
 picam2.configure(camera_config)
 # 關閉自動對焦(Af)，設置為手動模式
 picam2.set_controls({"AfMode": 0, "LensPosition": 1.0})  # 固定焦距到 1/10m = 10cm
-#picam2.set_controls({"AwbEnable": False, "ColourGains": (1.5, 1.0)})  # 1.7/0.7關掉白平衡，調整  Gain 值
-#picam2.set_controls({"ExposureValue": -0.5})  # +1 EV 提高亮度
+picam2.set_controls({"AwbEnable": False, "ColourGains": (1.5, 1.0)})  # 1.7/0.7關掉白平衡，調整  Gain 值
+picam2.set_controls({"ExposureValue": -0.5})  # +1 EV 提高亮度
 picam2.start()
 
 def showRealtimeImage(frame_name):
     base_count = 0
-    base_path = "./calibration/"
-    mtx = np.load('camera_matrix_real.npy')
-    dist = np.load('dist_coeff_real.npy')
+    base_path = "./calibration/persective"
+    mtx = np.load('camera_matrix.npy')
+    dist = np.load('dist_coeff.npy')
     
     while True:
         frame = picam2.capture_array()
@@ -37,7 +37,7 @@ def showRealtimeImage(frame_name):
         if key == ord('q'):
             break
         elif key == ord('b'):
-            img_name = os.path.join(base_path, f"img{base_count}_transform.png")
+            img_name = os.path.join(base_path, f"img{base_count}.png")
             cv2.imwrite(img_name, flipped_frame)
             base_count += 1
 
