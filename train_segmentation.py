@@ -10,8 +10,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader, random_split
 import torchvision.transforms as T
-from tqdm import tqdm
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 # ============ 輕量化 U-Net 模型（3 類別輸出） ============
 class UNet(nn.Module):
@@ -201,8 +201,8 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("🚀 使用設備：", device)
 
-    image_dir = "./imprint/dataset.label/data_dataset_voc/PNGImages"
-    mask_dir = "./imprint/dataset.label/data_dataset_voc/SegmentationClass"
+    image_dir = "./imprint/dataset.label/image_dataset/PNGImages"
+    mask_dir = "./imprint/dataset.label/image_dataset/SegmentationClass"
 
     dataset = SegmentationDataset(image_dir, mask_dir)
     train_len = int(0.8 * len(dataset))

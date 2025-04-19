@@ -44,24 +44,24 @@ def visualize_and_save(image, pred_mask, save_path, target_class=None):
     plt.close()
 
 def main():
-    parser = argparse.ArgumentParser(description='使用训练好的U-Net模型进行图像分割')
-    parser.add_argument('--image_dir', type=str, required=True, help='输入图像目录')
+    parser = argparse.ArgumentParser(description='use pre-trained model to predict')
+    parser.add_argument('--image_dir', type=str, required=True, help='input image directory')
     parser.add_argument('--item', type=str, choices=['wire', 'connector', 'all'], required=True, 
-                      help='分割目标类型 (wire=类别1, connector=类别2, all=所有类别)')
+                      help='specify the target class (wire=class1, connector=class2, all=all classes)')
     
     args = parser.parse_args()
     
     # 固定模型路径
-    model_path = "./model_train/2025-04-14_01-56-16/unet-epoch166-lr0.0001.pth"  # 请根据实际模型路径修改
+    model_path = "./model_train/2025-04-19_19-27-03/unet-epoch121-lr0.0001.pth"  # 请根据实际模型路径修改
     
     # 创建输出目录
-    output_dir = "./model_train/predict"
+    output_dir = "./model_train/predict_final"
     create_dir_if_not_exists(output_dir)
-    print(f"输出目录: {output_dir}")
+    print(f"output directory: {output_dir}")
     
     # 加载模型
     model, device = load_model(model_path)
-    print(f"模型已加载: {model_path}")
+    print(f"model loaded: {model_path}")
     
     # 设置图像转换
     transform = T.Compose([
@@ -72,10 +72,10 @@ def main():
     # 处理目录中的所有图像
     image_files = [f for f in os.listdir(args.image_dir) if f.endswith(('.png', '.jpg', '.jpeg'))]
     total_images = len(image_files)
-    print(f"找到 {total_images} 张图片待处理")
+    print(f"found {total_images} images to process")
     
     # 使用tqdm添加进度条
-    for idx, image_file in enumerate(tqdm(image_files, desc="处理进度"), 1):
+    for idx, image_file in enumerate(tqdm(image_files, desc="processing progress"), 1):
         image_path = os.path.join(args.image_dir, image_file)
         
         try:
@@ -88,30 +88,30 @@ def main():
                 output = model(image_tensor)
                 pred_mask = torch.argmax(output, dim=1).squeeze().cpu().numpy()
             
-            # 获取模型名称（不包含扩展名）
-            model_name = os.path.splitext(os.path.basename(model_path))[0]
+            # 获取原始图片的文件名（不包含扩展名）
+            original_filename = os.path.splitext(image_file)[0]
             
             # 根据选择的类别保存结果
             if args.item == 'all':
                 # 保存所有类别
-                save_path = os.path.join(output_dir, f"{model_name}_predict_all_img{idx}.png")
+                save_path = os.path.join(output_dir, f"{original_filename}_predict_all.png")
                 visualize_and_save(original_image, pred_mask, save_path)
                 
                 # 分别保存每个类别
                 for class_id, class_name in [(1, 'wire'), (2, 'connector')]:
-                    save_path = os.path.join(output_dir, f"{model_name}_predict_{class_name}_img{idx}.png")
+                    save_path = os.path.join(output_dir, f"{original_filename}_predict_{class_name}.png")
                     visualize_and_save(original_image, pred_mask, save_path, class_id)
             else:
                 # 保存单个类别
                 target_class = 1 if args.item == 'wire' else 2
-                save_path = os.path.join(output_dir, f"{model_name}_predict_{args.item}_img{idx}.png")
+                save_path = os.path.join(output_dir, f"{original_filename}_predict_{args.item}.png")
                 visualize_and_save(original_image, pred_mask, save_path, target_class)
             
         except Exception as e:
-            print(f"\n✗ 处理失败 [{image_file}]: {str(e)}")
+            print(f"\n processing failed [{image_file}]: {str(e)}")
             continue
 
-    print("\n✓ 处理完成!")
+    print("\n✓ processing completed!")
 
 if __name__ == '__main__':
     main()

@@ -171,15 +171,18 @@ def is_square(points, tolerance=5):
 
 ######################################
 # 计算透视变换参数矩阵
-img_path= './imprint/img2_cali.png'
+img_path= './calibration/persective/img1_transform.png'
 
 # 定義透視變換的四個點
-points = np.array([(155, 0), (542, 0), (479, 382), (215, 377)]) # 框偵測的四個點
+points = np.array([(111, 0), (497, 0), (448, 378), (194, 379)]) # 框偵測的四個點
 img = cv2.imread(img_path)
 cropped_img = ROI(img, points)
 sorted_points = detect_points(cropped_img)
 transformed_img, H = apply_perspective_transform(cropped_img, sorted_points)
 inner_square_pts = detect_points(transformed_img)
-print("Is target squared? Ans:",is_square(inner_square_pts))
+
 if is_square(inner_square_pts):
-    np.save("perspective_matrix_new.npy", H)
+    np.save("./calibration/perspective_matrix.npy", H)
+    print("save perspective_matrix.npy")
+else:
+    print("not square")
