@@ -66,11 +66,11 @@ def threshold_OTSU_method(src):
 
 #####################################################################
 input_folder = './imprint/dataset.label/original_images_2'
-output_folder = os.path.join(input_folder, 'transform_new')
+output_folder = os.path.join(input_folder, 'transform')
 os.makedirs(output_folder, exist_ok=True)
 
 H = np.load("./calibration/perspective_matrix.npy").astype(np.float32)
-points = np.array([(111, 0), (497, 0), (448, 378), (194, 379)]) # 框偵測的四個點 
+points = np.array([(120, 0), (506, 0), (458, 366), (197, 369)]) # 框偵測的四個點 
 # 處理每一張圖片
 for filename in os.listdir(input_folder):
     if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp')):

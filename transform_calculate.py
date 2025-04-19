@@ -171,10 +171,10 @@ def is_square(points, tolerance=5):
 
 ######################################
 # 计算透视变换参数矩阵
-img_path= './calibration/persective/img1_transform.png'
+img_path= './calibration/perspective/img1_trans.png'
 
 # 定義透視變換的四個點
-points = np.array([(111, 0), (497, 0), (448, 378), (194, 379)]) # 框偵測的四個點
+points = np.array([(120, 0), (506, 0), (458, 366), (197, 369)]) # 框偵測的四個點
 img = cv2.imread(img_path)
 cropped_img = ROI(img, points)
 sorted_points = detect_points(cropped_img)

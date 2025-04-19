@@ -52,7 +52,7 @@ def main():
     args = parser.parse_args()
     
     # 固定模型路径
-    model_path = "./model_train/2025-04-19_19-27-03/unet-epoch121-lr0.0001.pth"  # 请根据实际模型路径修改
+    model_path = "./model_train/2025-04-20_00-53-10/unet-epoch234-lr0.0001.pth"  # 请根据实际模型路径修改
     
     # 创建输出目录
     output_dir = "./model_train/predict_final"

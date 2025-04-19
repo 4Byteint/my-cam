@@ -16,9 +16,9 @@ picam2.start()
 
 def showRealtimeImage(frame_name):
     base_count = 0
-    base_path = "./calibration/persective"
-    mtx = np.load('camera_matrix.npy')
-    dist = np.load('dist_coeff.npy')
+    base_path = "./calibration/perspective"
+    mtx = np.load('./calibration/camera_matrix.npy')
+    dist = np.load('./calibration/dist_coeff.npy')
     
     while True:
         frame = picam2.capture_array()

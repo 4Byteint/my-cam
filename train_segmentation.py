@@ -201,8 +201,8 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("🚀 使用設備：", device)
 
-    image_dir = "./imprint/dataset.label/image_dataset/PNGImages"
-    mask_dir = "./imprint/dataset.label/image_dataset/SegmentationClass"
+    image_dir = "./imprint/dataset.label/final_dataset_voc/PNGImages"
+    mask_dir = "./imprint/dataset.label/final_dataset_voc/SegmentationClass"
 
     dataset = SegmentationDataset(image_dir, mask_dir)
     train_len = int(0.8 * len(dataset))
