@@ -24,7 +24,7 @@ def ROI(img, points):
 
 def apply_persepctive(image, points):
     h,w = image.shape[:2]
-    H = np.load("perspective_matrix.npy").astype(np.float32)
+    H = np.load("perspective_matrix_new.npy").astype(np.float32)
     """
     計算透視變換後的影像大小，並調整偏移量，使變換後的影像不固定在 (0,0)
     :param image: 原始影像
@@ -66,10 +66,10 @@ def threshold_OTSU_method(src):
 
 
 #####################################################################
-input_folder = './imprint/dataset.label/original_images'
+input_folder = './imprint/dataset.label/original_images_2'
 output_folder = os.path.join(input_folder, 'transform')
 os.makedirs(output_folder, exist_ok=True)
-points = np.array([(136, 0), (508, 0), (457, 345), (203, 348)]) # 框偵測的四個點
+points = np.array([(155, 0), (542, 0), (479, 382), (215, 377)]) # 框偵測的四個點 -10
 
 # 處理每一張圖片
 for filename in os.listdir(input_folder):

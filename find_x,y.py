@@ -18,7 +18,7 @@ def click_and_crop(event, x, y, flags, param):
         cv2.rectangle(image, ref_point[0], ref_point[1], (0, 255, 0), 2)
         cv2.imshow("Image", image)
 
-image = cv2.imread("./imprint/al/img0_base.png")
+image = cv2.imread("./imprint/dataset.label/original_images_2/img1.png")
 clone = image.copy()
 cv2.namedWindow("Image")
 cv2.setMouseCallback("Image", click_and_crop)

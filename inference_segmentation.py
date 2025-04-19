@@ -29,37 +29,18 @@ def process_image(image_path, transform):
     return image_tensor, image
 
 def visualize_and_save(image, pred_mask, save_path, target_class=None):
-    """可视化并保存预测结果"""
-    plt.figure(figsize=(12, 4))
-    
-    # 原始图像
-    plt.subplot(1, 3, 1)
-    image_np = image.convert('RGB')
-    plt.imshow(image_np)
-    plt.title("输入图像")
-    plt.axis('off')
-    
-    # 预测掩码
-    plt.subplot(1, 3, 2)
+    """保存预测掩码（纯图片）"""
+    # 保存预测掩码
     if target_class is not None:
         mask = (pred_mask == target_class).astype(float)
-        title = f"预测掩码 (类别 {target_class})"
     else:
         mask = pred_mask.astype(float)
-        title = "预测掩码 (所有类别)"
+    
+    plt.figure(figsize=(6, 4))
     plt.imshow(mask, cmap='gray')
-    plt.title(title)
     plt.axis('off')
-    
-    # 叠加显示
-    plt.subplot(1, 3, 3)
-    plt.imshow(image_np)  # 先显示原图
-    plt.imshow(mask, alpha=0.5, cmap='jet')  # 再叠加掩码
-    plt.title("叠加效果")
-    plt.axis('off')
-    
-    plt.tight_layout()
-    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
+    plt.savefig(save_path, dpi=300, bbox_inches='tight', pad_inches=0)
     plt.close()
 
 def main():
