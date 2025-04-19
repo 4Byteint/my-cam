@@ -21,9 +21,7 @@ def ROI(img, points):
 
     return cropped_dst_white
 
-def apply_persepctive(image, points):
-    h,w = image.shape[:2]
-    H = np.load("perspective_matrix.npy").astype(np.float32)
+def apply_persepctive(image, points, H):
     """
     計算透視變換後的影像大小，並調整偏移量，使變換後的影像不固定在 (0,0)
     :param image: 原始影像
@@ -63,15 +61,15 @@ def threshold_OTSU_method(src):
 
 
 #####################################################################
-img_path = './imprint/al_grip/img0.png'
-#"F:/img1_transform.png"
+img_path = './imprint/dataset.label/original_images_2/img0.png'
+H = np.load("./calibration/perspective_matrix.npy").astype(np.float32)
+
 img = cv2.imread(img_path)
-points = np.array([(136, 0), (508, 0), (457, 345), (203, 348)]) # 框偵測的四個點
+points = np.array([(111, 0), (497, 0), (448, 378), (194, 379)]) # 框偵測的四個點
 cropped_img= ROI(img, points)
-warped_image = apply_persepctive(cropped_img, points)
+warped_image = apply_persepctive(cropped_img, points, H)
 #threshold_OTSU_method(warped_image)
 cv2.imshow("cropped_img", cropped_img)
 cv2.imshow("warped_image", warped_image)
-cv2.imwrite("nntest_image.png", warped_image)
 cv2.waitKey(0)
 cv2.destroyAllWindows()

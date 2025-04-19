@@ -17,15 +17,16 @@ picam2.start()
 def showRealtimeImage(frame_name):
     base_count = 0
     base_path = "./calibration/persective"
-    mtx = np.load('./calibration/camera_matrix.npy')
-    dist = np.load('./calibration/dist_coeff.npy')
+    mtx = np.load('camera_matrix.npy')
+    dist = np.load('dist_coeff.npy')
     
     while True:
         frame = picam2.capture_array()
         h, w = frame.shape[:2]
         #request = picam2.capture_request()  # 這樣影像會經過 Raspberry Pi 內建校正
         #frame = request.make_array("main")  # 轉換為 NumPy 陣列
-        #request.release()  # 釋放請求，避免佔用相機資源
+        #request.release()  # 釋放請
+        # 求，避免佔用相機資源
         # 修正色彩空間（RGB -> BGR）
         frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         flipped_frame = cv2.flip(frame_bgr,0)

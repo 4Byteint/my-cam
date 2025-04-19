@@ -1,0 +1,36 @@
+{
+  "version": "5.8.1",
+  "flags": {},
+  "shapes": [
+    {
+      "label": "connector",
+      "points": [
+        [
+          88.01574803149607,
+          102.34251968503938
+        ],
+        [
+          101.79527559055119,
+          159.0
+        ],
+        [
+          35.2569316081331,
+          159.29759704251381
+        ],
+        [
+          26.01478743068394,
+          122.51386321626616
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "polygon",
+      "flags": {},
+      "mask": null
+    }
+  ],
+  "imagePath": "img14.png",
+  "imageData": null,
+  "imageHeight": 160,
+  "imageWidth": 128
+}
