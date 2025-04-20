@@ -7,7 +7,7 @@ import time
 # 初始化相機
 picam2 = Picamera2()
 
-camera_config = picam2.create_still_configuration(main={"size":(640,480), "format": "YUV420"})  # 使用 YUV420 格式
+camera_config = picam2.create_video_configuration(main={"size":(640,480), "format": "YUV420"})  # 使用 YUV420 格式
 picam2.configure(camera_config)
 picam2.set_controls({
     "AfMode": 0,
