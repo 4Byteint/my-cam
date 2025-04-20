@@ -44,8 +44,8 @@ def showRealtimeImage(frame_name):
         dst = cv2.undistort(flipped_frame, mtx, dist, None, newcameramtx)
         
         frame_count += 1
-        
-        if time.time() - start_time >= 1:
+        elapsed = time.time() - start_time
+        if elapsed >= 1:
             fps = frame_count 
             print(f"FPS: {fps}")
             frame_count = 0
@@ -54,7 +54,6 @@ def showRealtimeImage(frame_name):
         # 在畫面上顯示 FPS
         cv2.putText(dst, f"FPS: {int(fps)}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
         cv2.imshow(frame_name, dst)
-        
         
         key = cv2.waitKey(1)
         if key == ord('q'):

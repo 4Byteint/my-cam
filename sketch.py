@@ -7,6 +7,13 @@ config = picam2.create_video_configuration(
     main={"size": (640, 480), "format": "YUV420"}
 )
 picam2.configure(config)
+picam2.set_controls({
+    "AfMode": 0,
+    "LensPosition": 1.0,
+    "AwbEnable": False,
+    "ColourGains": (1.7, 0.8),
+    "ExposureValue": -0.5
+})
 picam2.start()
 
 start_time = time.time()
