@@ -7,12 +7,15 @@ import time
 # 初始化相機
 picam2 = Picamera2()
 
-camera_config = picam2.create_still_configuration(main={"size":(640,480)})  # 使用預覽模式
+camera_config = picam2.create_still_configuration(main={"size":(640,480), "format": "YUV420"})  # 使用 YUV420 格式
 picam2.configure(camera_config)
-# 關閉自動對焦(Af)，設置為手動模式
-picam2.set_controls({"AfMode": 0, "LensPosition": 1.0})  # 固定焦距到 1/10m = 10cm
-picam2.set_controls({"AwbEnable": False, "ColourGains": (1.7, 0.8)})  # 1.7/0.7關掉白平衡，調整  Gain 值
-picam2.set_controls({"ExposureValue": -0.5})  # +1 EV 提高亮度
+picam2.set_controls({
+    "AfMode": 0,
+    "LensPosition": 1.0,
+    "AwbEnable": False,
+    "ColourGains": (1.7, 0.8),
+    "ExposureValue": -0.5
+})
 picam2.start()
 
 def showRealtimeImage(frame_name):
@@ -22,32 +25,36 @@ def showRealtimeImage(frame_name):
     dist = np.load('./calibration/dist_coeff.npy')
     
     # 初始化 FPS 計算變數
-    prev_time = 0
-    curr_time = 0
+    start_time = time.time()
+    frame_count = 0
+    fps = 0
     
     while True:
-        frame = picam2.capture_array()
-    
+        frame = picam2.capture_array("main") 
+        frame = cv2.cvtColor(frame, cv2.COLOR_YUV2BGR_I420)  # YUV 轉 BGR 才能顯示
         h, w = frame.shape[:2]
         #request = picam2.capture_request()  # 這樣影像會經過 Raspberry Pi 內建校正
         #frame = request.make_array("main")  # 轉換為 NumPy 陣列
         #request.release()  # 釋放請
         # 求，避免佔用相機資源
         # 修正色彩空間（RGB -> BGR）
-        frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        flipped_frame = cv2.flip(frame_bgr,0)
+        # frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        flipped_frame = cv2.flip(frame,0)
         newcameramtx, _ = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 0.9, (w, h))
         dst = cv2.undistort(flipped_frame, mtx, dist, None, newcameramtx)
         
-        # 計算 FPS
-        curr_time = time.time()
-        fps = 1 / (curr_time - prev_time)
-        prev_time = curr_time
+        frame_count += 1
+        
+        if time.time() - start_time >= 1:
+            fps = frame_count 
+            print(f"FPS: {fps}")
+            frame_count = 0
+            start_time = time.time()
         
         # 在畫面上顯示 FPS
         cv2.putText(dst, f"FPS: {int(fps)}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        
         cv2.imshow(frame_name, dst)
+        
         
         key = cv2.waitKey(1)
         if key == ord('q'):
@@ -56,10 +63,11 @@ def showRealtimeImage(frame_name):
             img_name = os.path.join(base_path, f"img{base_count}_transform.png")
             cv2.imwrite(img_name, flipped_frame)
             base_count += 1
+    cv2.destroyAllWindows()
 
 def getFrame(frame_name):
-    frame = picam2.capture_array()
-   
+    frame = picam2.capture_array("main")
+    frame = cv2.cvtColor(frame, cv2.COLOR_YUV2BGR_I420)  # YUV 轉 BGR 才能顯示
      # 修正色彩空間（RGB -> BGR）
     frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
     flipped_frame = cv2.flip(frame_bgr,0)
