@@ -2,6 +2,7 @@ import numpy as np
 from picamera2 import Picamera2, Preview
 import cv2
 import os
+import time
 
 # 初始化相機
 picam2 = Picamera2()
@@ -20,8 +21,13 @@ def showRealtimeImage(frame_name):
     mtx = np.load('./calibration/camera_matrix.npy')
     dist = np.load('./calibration/dist_coeff.npy')
     
+    # 初始化 FPS 計算變數
+    prev_time = 0
+    curr_time = 0
+    
     while True:
         frame = picam2.capture_array()
+    
         h, w = frame.shape[:2]
         #request = picam2.capture_request()  # 這樣影像會經過 Raspberry Pi 內建校正
         #frame = request.make_array("main")  # 轉換為 NumPy 陣列
@@ -32,6 +38,15 @@ def showRealtimeImage(frame_name):
         flipped_frame = cv2.flip(frame_bgr,0)
         newcameramtx, _ = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 0.9, (w, h))
         dst = cv2.undistort(flipped_frame, mtx, dist, None, newcameramtx)
+        
+        # 計算 FPS
+        curr_time = time.time()
+        fps = 1 / (curr_time - prev_time)
+        prev_time = curr_time
+        
+        # 在畫面上顯示 FPS
+        cv2.putText(dst, f"FPS: {int(fps)}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        
         cv2.imshow(frame_name, dst)
         
         key = cv2.waitKey(1)
