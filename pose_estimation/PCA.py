@@ -4,10 +4,15 @@ import cv2
 import numpy as np
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
+import os
 
 # 載入新的圖像（Gradient Magnitude）
 # new_image_path = "gradient_visualization_grip_new_img3_magnitude.png"
-new_image_path = "C:/Jill/Code/camera/model_train/predict/unet-epoch166-lr0.0001_predict_connector_img89.png"
+new_image_path = "C:/Jill/Code/camera/model_train/predict_final/img71_predict_connector.png"
+
+# 獲取輸入圖片的文件名（不含路徑和副檔名）
+input_filename = os.path.splitext(os.path.basename(new_image_path))[0]
+output_filename = f"{input_filename}_PCA.png"
 
 new_image = Image.open(new_image_path).convert("RGB")
 new_image_np = np.array(new_image)
@@ -57,4 +62,9 @@ plt.plot([new_center[1] - scale * best_axis[1], new_center[1] + scale * best_axi
 
 plt.axis('off')
 plt.legend()
+
+# 保存圖像
+plt.savefig(output_filename, bbox_inches='tight', dpi=300)
+print(f"圖像已保存為 {output_filename}")
+
 plt.show()
