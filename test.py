@@ -7,8 +7,10 @@ import time
 # 初始化相機
 picam2 = Picamera2()
 
-camera_config = picam2.create_video_configuration(main={"size":(640,480), "format": "YUV420"})  # 使用 YUV420 格式
-picam2.configure(camera_config)
+config = picam2.create_video_configuration(main={"size":(640,480), "format": "YUV420"})  # 使用 YUV420 格式
+# 如果要用 AI 推論可以用 lores
+
+picam2.configure(config)
 picam2.set_controls({
     "AfMode": 0,
     "LensPosition": 1.0,
@@ -63,18 +65,9 @@ def showRealtimeImage(frame_name):
             cv2.imwrite(img_name, flipped_frame)
             base_count += 1
     cv2.destroyAllWindows()
-
-def getFrame(frame_name):
-    frame = picam2.capture_array("main")
-    frame = cv2.cvtColor(frame, cv2.COLOR_YUV2BGR_I420)  # YUV 轉 BGR 才能顯示
-     # 修正色彩空間（RGB -> BGR）
-    frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-    flipped_frame = cv2.flip(frame_bgr,0)
-    # 使用 OpenCV 顯示影像
-    cv2.imwrite(frame_name, flipped_frame)
-
+    picam2.stop()
 
 # ==============================================================
 # main
 showRealtimeImage("Picamera2 image")
-picam2.stop()
+

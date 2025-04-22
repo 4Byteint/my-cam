@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from train_segmentation import UNet
 from tqdm import tqdm
 import time
+import numpy as np
 
 def create_dir_if_not_exists(path):
     """创建目录（如果不存在）"""
@@ -33,16 +34,13 @@ def visualize_and_save(image, pred_mask, save_path, target_class=None):
     """保存预测掩码（纯图片）"""
     # 保存预测掩码
     if target_class is not None:
-        mask = (pred_mask == target_class).astype(float)
+        mask = (pred_mask == target_class).astype(np.uint8) * 255
     else:
-        mask = pred_mask.astype(float)
+        mask = pred_mask.astype(np.uint8) * 255
     
-    plt.figure(figsize=(6, 4))
-    plt.imshow(mask, cmap='gray')
-    plt.axis('off')
-    plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
-    plt.savefig(save_path, dpi=300, bbox_inches='tight', pad_inches=0)
-    plt.close()
+    # 直接保存为PNG图像
+    mask_image = Image.fromarray(mask)
+    mask_image.save(save_path)
 
 def process_single_image(image_path, model, device, transform, output_dir, item):
     """处理单张图片并返回处理时间"""
@@ -135,7 +133,7 @@ def main():
     
     # 设置图像转换
     transform = T.Compose([
-        T.Resize((160, 128)),
+        T.Resize((160, 128)),  # 保持128x160的尺寸
         T.ToTensor(),
     ])
     
