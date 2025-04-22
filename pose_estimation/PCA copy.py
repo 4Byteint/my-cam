@@ -5,103 +5,104 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
-# 載入新的圖像
-new_image_path = "C:/Jill/Code/camera/model_train/predict_final/img72_predict_connector.png"
-img = cv2.imread(new_image_path)
 
-# 轉為灰階
-gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-# 邊緣檢測
-edges = cv2.Canny(gray, 50, 150)
+def find_edge_points(img_path):
+    img = cv2.imread(img_path)
 
-# 找輪廓
-contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # 轉為灰階
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # 取得圖像寬高
+    height, width = gray.shape
+    contours, _ = cv2.findContours(gray, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # 取最大輪廓（通常是白色區塊）
+    cnt = max(contours, key=cv2.contourArea)
+    # 多邊形擬合，取得邊的頂點
+    epsilon = 0.1 * cv2.arcLength(cnt, True)
+    approx = cv2.approxPolyDP(cnt, epsilon, True)
+    # 閾值（誤差）
+    x_thresh = 10
+    y_thresh = 10
+    y_target = height
+    # # 逐邊畫出邊線（擬合線段）
+    # for i in range(len(approx)):
+    #     pt1 = tuple(approx[i][0])
+    #     pt2 = tuple(approx[(i+1) % len(approx)][0])  # 閉合輪廓
+    #      # 過濾邊：排除 x ≈ 0 的邊（左右端點都接近 x=0）
+    #     if abs(pt1[0]) <= x_thresh and abs(pt2[0]) <= x_thresh:
+    #         continue
+    #     # 排除：右邊框（x ≈ image width）
+    #     if abs(pt1[0] - width) <= x_thresh and abs(pt2[0] - width) <= x_thresh:
+    #         continue
+    #     # 過濾邊：排除 y ≈ 160 的邊（上下端點都接近 y=160）
+    #     if abs(pt1[1] - y_target) <= y_thresh and abs(pt2[1] - y_target) <= y_thresh:
+    #         continue
+    #     # 畫出這一條邊
+    #     cv2.line(img, pt1, pt2, (0, 255, 0), 2)  # 用藍色畫出邊
+    #     edges.append((pt1, pt2))
 
-# 找最大輪廓
-max_cnt = max(contours, key=cv2.contourArea)
+    # Step 1：過濾角點（剔除邊界角點）
+    filtered_pts = []
+    for pt in approx:
+        x, y = pt[0]
+        if abs(x - 0) <= x_thresh:
+            continue
+        if abs(x - width) <= x_thresh:
+            continue
+        if abs(y - y_target) <= y_thresh:
+            continue
+        filtered_pts.append((x, y))
 
-# 使用多邊形擬合
-epsilon = 0.025 * cv2.arcLength(max_cnt, True)
-approx = cv2.approxPolyDP(max_cnt, epsilon, True)
-centers = []
-# 儲存邊的對應關係
-center_edge_map = {}
-# 繪製所有邊
-for i in range(len(approx)):
-    pt1 = tuple(approx[i][0])
-    pt2 = tuple(approx[(i+1)%len(approx)][0])
-    #cv2.line(img, pt1, pt2, (0, 255, 0), 2)
-    # 計算中點座標
-    mid_x = (pt1[0] + pt2[0]) // 2
-    mid_y = (pt1[1] + pt2[1]) // 2
-    center = (mid_x, mid_y)
-    # 排除條件一：Y 約等於 160（±10）
-    if abs(mid_y - 160) <= 10:
-        continue
+    # Step 2：畫線、畫中點、畫垂線
+    L = 40  # 垂線長度
+    if len(filtered_pts) == 2:
+        pt1 = filtered_pts[0]
+        pt2 = filtered_pts[1]  # 若不想閉合，可改為 i+1 檢查邊界
 
-    # 排除條件二：X 約等於 0（+10）
-    if abs(mid_x - 0) <= 10:
-        continue
-    centers.append(center)
-    center_edge_map[center] = (pt1, pt2)
-    cv2.line(img, pt1, pt2, (0, 255, 0), 2)
+        # 畫邊（綠色）
+        cv2.line(img, pt1, pt2, (0, 255, 0), 2)
+
+        # 計算中心點
+        mid_x = (pt1[0] + pt2[0]) // 2
+        mid_y = (pt1[1] + pt2[1]) // 2
+        center = (mid_x, mid_y)
+        cv2.circle(img, center, 4, (0, 255, 255), -1)  # 中點黃色
+
+        # 邊向量與長度
+        dx = pt2[0] - pt1[0]
+        dy = pt2[1] - pt1[1]
+        length = math.hypot(dx, dy)
     
-# 找出 y 座標最小者
-min_y_point = min(centers, key=lambda point: point[1])
-cv2.circle(img, min_y_point, 5, (0, 0, 255), -1)
 
-print("邊的中點座標")
-for idx, (x,y) in enumerate(centers, start=1): 
-    x = int(x)
-    y = int(y)
-    print(f"第 {idx} 條邊中心點: {x, y}")
+        # 垂直向量（單位向量）
+        perp_dx = -dy / length
+        perp_dy = dx / length
 
+        # 垂線兩端點
+        pA = (int(mid_x + perp_dx * L), int(mid_y + perp_dy * L))
+        pB = (int(mid_x - perp_dx * L), int(mid_y - perp_dy * L))
+        cv2.line(img, pA, pB, (0, 0, 255), 2)  # 紅色垂直線
 
-# 找出該點對應的邊 (pt1, pt2)
-pt1, pt2 = center_edge_map[min_y_point]
+        # 計算垂線與 x 軸夾角
+        angle_rad = math.atan2(perp_dy, perp_dx)
+        angle_deg = math.degrees(angle_rad)
+        if angle_deg < 0:
+            angle_deg += 360
+        pt1 = (int(pt1[0]), int(pt1[1]))
+        pt2 = (int(pt2[0]), int(pt2[1]))
+        # 印出資訊
+        print(f"  pt1 = {pt1}, pt2 = {pt2}")
+        print(f"  中點 = {center}")
+        print(f"  邊長 = {length:.2f}")
+        print(f"  垂線與 x 軸夾角 = {angle_deg:.2f}°\n")
+    # 顯示結果
+    cv2.imshow("All edges", img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+########################################################
+def main():
+    # 載入新的圖像
+    image_path = "C:/Jill/Code/camera/model_train/predict_final/img50_predict_connector.png"
+    find_edge_points(image_path)
 
-# 計算邊的 dx, dy
-dx = pt2[0] - pt1[0]
-dy = pt2[1] - pt1[1]
-
-# 處理斜率為 0 或 ∞ 的特殊情況
-if dx == 0:
-    perp_dx = 25
-    perp_dy = 0
-elif dy == 0:
-    perp_dx = 0
-    perp_dy = 25
-else:
-    # 計算垂線方向向量
-    length = 25
-    norm = math.sqrt(dx**2 + dy**2)
-    perp_dx = int(-dy / norm * length)
-    perp_dy = int(dx / norm * length)
-
-# 計算垂線端點
-ptA = (min_y_point[0] + perp_dx, min_y_point[1] + perp_dy)
-ptB = (min_y_point[0] - perp_dx, min_y_point[1] - perp_dy)
-
-# 畫出垂線（藍色）
-cv2.line(img, ptA, ptB, (255, 0, 0), 2)
-import math
-
-# 計算向量（ptB → ptA）
-vx = ptB[0] - ptA[0]
-vy = ptB[1] - ptA[1]
-
-# 計算與正 x 軸的夾角（使用 atan2，能正負方向分辨）
-angle_rad = math.atan2(vy, vx)  # 單位：弧度
-angle_deg = math.degrees(angle_rad)  # 轉為角度
-
-# 讓角度範圍在 0~360 度之間（可選）
-if angle_deg < 0:
-    angle_deg += 360
-
-print(f"垂直線與正 x 軸的夾角為：{angle_deg:.2f} 度")
-
-# 顯示結果
-cv2.imshow("Detected Edges", img)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+    
