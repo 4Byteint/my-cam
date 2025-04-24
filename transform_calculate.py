@@ -128,16 +128,16 @@ def apply_perspective_transform(image, sorted_points):
     # 定義變換後的四個點 (標準矩形)
     dst_points = np.array([
         [0, 0],          # 左上角
-        [200-1, 0],    # 右上角
-        [200-1, 250-1],  # 右下角
-        [0, 250-1],   # 左下角
+        [128-1, 0],    # 右上角
+        [128-1, 160-1],  # 右下角
+        [0, 160-1],   # 左下角
     ], dtype=np.float32)
 
     # 計算透視變換矩陣
     H = cv2.getPerspectiveTransform(sorted_points, dst_points)
 
     # 應用透視變換
-    warped_image = cv2.warpPerspective(image, H, (200, 250))
+    warped_image = cv2.warpPerspective(image, H, (128, 160))
     cv2.imshow("warped_image",warped_image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
@@ -182,7 +182,7 @@ transformed_img, H = apply_perspective_transform(cropped_img, sorted_points)
 inner_square_pts = detect_points(transformed_img)
 
 if is_square(inner_square_pts):
-    np.save("./calibration/perspective_matrix.npy", H)
-    print("save perspective_matrix.npy")
+    np.save("./calibration/perspective_matrix_128x160.npy", H)
+    print("save perspective_matrix_128x160.npy")
 else:
     print("not square")

@@ -1,11 +1,7 @@
 # config.py
 # picam2 setup
-
-# 相機解析度與格式
 RESOLUTION = (640, 480)
 VIDEO_FORMAT = "YUV420"
-
-# 相機控制參數
 AF_MODE = 0
 LENS_POSITION = 1.0
 AWB_ENABLE = False
@@ -21,8 +17,9 @@ MODEL_PATH = "model.pth"
 DEVICE = "cuda"
 
 # 影像轉換設定
-PERSPECTIVE_MATRIX_PATH = "calibration/perspective_matrix.npy"
-PERSPECTIVE_SIZE = (160, 128) # (height, width)
+POINTS = [(120, 0), (506, 0), (458, 366), (197, 369)] # 框偵測的四個點 
+PERSPECTIVE_MATRIX_PATH = "calibration/perspective_matrix_128x160.npy"
+PERSPECTIVE_SIZE = (128, 160) # (height, width)
 
 # 模型輸入大小
 MODEL_INPUT_SIZE = (160, 128) # (height, width)

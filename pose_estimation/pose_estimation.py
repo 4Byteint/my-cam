@@ -5,11 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
-
-
 def find_edge_points(img_path):
     img = cv2.imread(img_path)
-
     # 轉為灰階
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     # 取得圖像寬高
@@ -99,10 +96,16 @@ def find_edge_points(img_path):
     cv2.imshow("All edges", img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+    
+# def find_edge_points_from_video(video_path):
+# def find_pose_form_line():
+    
 ########################################################
 def main():
     # 載入新的圖像
     image_path = "C:/Jill/Code/camera/model_train/predict_final/img50_predict_connector.png"
     find_edge_points(image_path)
 
-    
+
+if __name__ == "__main__":
+    main()

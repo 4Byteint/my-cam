@@ -33,13 +33,13 @@ def apply_persepctive(image, points, H):
     """
     # 轉換點為齊次座標
     points = np.array(points, dtype=np.float32).reshape(-1, 1, 2) 
-    warped_image = cv2.warpPerspective(image, H, (200, 250)) # (width, height)
+    warped_image = cv2.warpPerspective(image, H, (128, 160)) # (width, height)
     # resize到目標大小
-    resized_image = cv2.resize(warped_image, (128, 160)) # (width, height)
+    
     # 如果你想轉換回來影像的時候可以用
     # H_inv = np.linalg.inv(H_translated)
     # warped_image2 = cv2.warpPerspective(warped_image, H_inv, (w, h))
-    return resized_image
+    return warped_image
 
 def threshold_OTSU_method(src):
     image = np.array(src)
@@ -69,7 +69,7 @@ input_folder = './imprint/dataset.label/original_images_2'
 output_folder = os.path.join(input_folder, 'transform')
 os.makedirs(output_folder, exist_ok=True)
 
-H = np.load("./calibration/perspective_matrix.npy").astype(np.float32)
+H = np.load("./calibration/perspective_matrix_128x160.npy").astype(np.float32)
 points = np.array([(120, 0), (506, 0), (458, 366), (197, 369)]) # 框偵測的四個點 
 # 處理每一張圖片
 for filename in os.listdir(input_folder):

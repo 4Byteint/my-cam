@@ -19,14 +19,15 @@ def ROI(img, points):
     
     # 計算 ROI 的邊界框
     x, y, w, h = cv2.boundingRect(pts)
-    cropped_roi = dst[y:y+h, x:x+w]
+    # 有需要黑底的 roi 可以這樣寫
+    # cropped_roi = dst[y:y+h, x:x+w]
     # 建立白色背景並應用 mask
     bg = np.ones_like(img, np.uint8) * 255
     cv2.bitwise_not(bg, bg, mask=mask)
     dst_white = bg + dst
     # 裁剪白色背景的 ROI
     cropped_dst_white = dst_white[y:y+h, x:x+w]
-
+    print(x, y)
     return cropped_dst_white
 
 def perspective_transform_and_resize(image, points, H, output_size):
@@ -51,3 +52,11 @@ def apply_perspective_transform(img, output_size):
     cropped_img = ROI(img, points)
     warped_image = perspective_transform_and_resize(cropped_img, points, H, output_size)
     return warped_image
+
+if __name__ == "__main__":
+    img = cv2.imread("./imprint/dataset.label/original_images_2/img0.png")
+    warped_image = apply_perspective_transform(img, config.PERSPECTIVE_SIZE)
+    cv2.imshow("warped_image", warped_image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
