@@ -31,8 +31,10 @@ def find_trapezoid_points(image_path):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     
     # 進行二值化處理
-    _, thresh = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY)
-    
+    _, thresh = cv2.threshold(gray, 70, 100, cv2.THRESH_BINARY)
+    cv2.imshow('Detected Trapezoid', thresh)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
     # 找輪廓
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
@@ -57,16 +59,16 @@ def find_trapezoid_points(image_path):
                 print(f"Point {i + 1}: ({x}, {y})")
                 cv2.circle(image, (x, y), 5, (0, 0, 255), -1)
             
-            return sorted_points
+            return sorted_points, image
     
     return None
 
 def main():
     # 在這裡修改圖像路徑
-    image_path = "./calibration/perspective/img0_trans.png"
+    image_path = "./calibration/perspective/img3_trans.png"
     
     # 找出梯形點
-    points = find_trapezoid_points(image_path)
+    points, draw_image = find_trapezoid_points(image_path)
     
     if points is not None:
         print("\n排序後的點（左上、右上、右下、左下）：")
@@ -74,8 +76,7 @@ def main():
             print(f"Point {i + 1}: ({point[0]}, {point[1]})")
         
         # 顯示結果
-        image = cv2.imread(image_path)
-        cv2.imshow('Detected Trapezoid', image)
+        cv2.imshow('Detected Trapezoid', draw_image)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
     else:
