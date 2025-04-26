@@ -21,10 +21,10 @@ picam2.set_controls({
 picam2.start()
 
 def showRealtimeImage(frame_name):
-    base_count = 0
-    base_path = "./calibration/final"
-    #mtx = np.load('./calibration/camera_matrix.npy')
-    #dist = np.load('./calibration/dist_coeff.npy')
+    base_count = 1
+    base_path = "./calibration/perspective"
+    mtx = np.load('./calibration/camera_matrix.npy')
+    dist = np.load('./calibration/dist_coeff.npy')
     
     # 初始化 FPS 計算變數
     start_time = time.time()
@@ -40,10 +40,10 @@ def showRealtimeImage(frame_name):
         #request.release()  # 釋放請
         # 求，避免佔用相機資源
         # 修正色彩空間（RGB -> BGR）
-        # frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        # frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         flipped_frame = cv2.flip(frame,0)
-        #newcameramtx, _ = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 0.9, (w, h))
-        #dst = cv2.undistort(flipped_frame, mtx, dist, None, newcameramtx)
+        newcameramtx, _ = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 0.9, (w, h))
+        dst = cv2.undistort(flipped_frame, mtx, dist, None, newcameramtx)
         
         frame_count += 1
         elapsed = time.time() - start_time
@@ -55,14 +55,14 @@ def showRealtimeImage(frame_name):
         
         # 在畫面上顯示 FPS
         #cv2.putText(flipped_frame, f"FPS: {int(fps)}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        cv2.imshow(frame_name, flipped_frame)
+        cv2.imshow(frame_name, dst)
         
         key = cv2.waitKey(1)
         if key == ord('q'):
             break
         elif key == ord('b'):
-            img_name = os.path.join(base_path, f"img{base_count}_calib.png")
-            cv2.imwrite(img_name, flipped_frame) # change when you use calibration
+            img_name = os.path.join(base_path, f"img{base_count}_trans.png")
+            cv2.imwrite(img_name, dst) # change when you use calibration
             base_count += 1
     cv2.destroyAllWindows()
     picam2.stop()
