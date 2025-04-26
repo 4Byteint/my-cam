@@ -35,9 +35,10 @@ print('mtx: ',mtx)
 print('dist: ',dist)
 np.save('./calibration/camera_matrix.npy', mtx)
 np.save('./calibration/dist_coeff.npy', dist)
-
+np.save('./calibration/rvecs.npy', rvecs)
+np.save('./calibration/tvecs.npy', tvecs)
 # undistort
-img = cv.imread('./calibration/final/img10_calib.png')
+img = cv.imread('./calibration/final/img12_calib.png')
 h,  w = img.shape[:2]
 newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w, h), 0.9, (w, h))
 dst = cv.undistort(img, mtx, dist, None, newcameramtx)
