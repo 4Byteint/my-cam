@@ -14,17 +14,17 @@ picam2.configure(config)
 picam2.set_controls({
     "AfMode": 0,
     "LensPosition": 1.0,
-    "AwbEnable": False,
-    "ColourGains": (1.7, 0.8),
-    "ExposureValue": -0.5
+    #"AwbEnable": False,
+    #"ColourGains": (1.7, 0.8),
+    #"ExposureValue": -0.5
 })
 picam2.start()
 
 def showRealtimeImage(frame_name):
     base_count = 0
-    base_path = "./calibration/perspective"
-    mtx = np.load('./calibration/camera_matrix.npy')
-    dist = np.load('./calibration/dist_coeff.npy')
+    base_path = "./calibration/final"
+    #mtx = np.load('./calibration/camera_matrix.npy')
+    #dist = np.load('./calibration/dist_coeff.npy')
     
     # 初始化 FPS 計算變數
     start_time = time.time()
@@ -42,8 +42,8 @@ def showRealtimeImage(frame_name):
         # 修正色彩空間（RGB -> BGR）
         # frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         flipped_frame = cv2.flip(frame,0)
-        newcameramtx, _ = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 0.9, (w, h))
-        dst = cv2.undistort(flipped_frame, mtx, dist, None, newcameramtx)
+        #newcameramtx, _ = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 0.9, (w, h))
+        #dst = cv2.undistort(flipped_frame, mtx, dist, None, newcameramtx)
         
         frame_count += 1
         elapsed = time.time() - start_time
@@ -54,15 +54,15 @@ def showRealtimeImage(frame_name):
             start_time = time.time()
         
         # 在畫面上顯示 FPS
-        cv2.putText(dst, f"FPS: {int(fps)}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        cv2.imshow(frame_name, dst)
+        #cv2.putText(flipped_frame, f"FPS: {int(fps)}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        cv2.imshow(frame_name, flipped_frame)
         
         key = cv2.waitKey(1)
         if key == ord('q'):
             break
         elif key == ord('b'):
-            img_name = os.path.join(base_path, f"img{base_count}_transform.png")
-            cv2.imwrite(img_name, flipped_frame)
+            img_name = os.path.join(base_path, f"img{base_count}_calib.png")
+            cv2.imwrite(img_name, flipped_frame) # change when you use calibration
             base_count += 1
     cv2.destroyAllWindows()
     picam2.stop()
