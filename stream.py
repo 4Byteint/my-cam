@@ -21,7 +21,7 @@ picam2.set_controls({
 picam2.start()
 
 def showRealtimeImage(frame_name):
-    base_count = 1
+    base_count = 2
     base_path = "./calibration/perspective"
     mtx = np.load('./calibration/camera_matrix.npy')
     dist = np.load('./calibration/dist_coeff.npy')
