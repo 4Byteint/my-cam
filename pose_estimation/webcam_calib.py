@@ -11,6 +11,7 @@ objp[:,:2] = np.mgrid[0:chessboard[0],0:chessboard[1]].T.reshape(-1,2)
 objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
 images = glob.glob('./webcam_calib/*.jpg')
+
 for fname in images:
     img = cv.imread(fname)
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
@@ -40,7 +41,7 @@ np.save('./webcam_calib/tvecs.npy', tvecs)
 # undistort
 img = cv.imread('./webcam_calib/WIN_20250430_12_53_58_Pro.jpg')
 h,  w = img.shape[:2]
-newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w, h), 0.9, (w, h))
+newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w, h), 0, (w, h))
 dst = cv.undistort(img, mtx, dist, None, newcameramtx)
 cv.imwrite("./webcam_calib/calibresult_cam.png", dst)
 print("Calibration completed successfully. Output saved as ./calibration/calibresult_cam.png")

@@ -65,7 +65,7 @@ def threshold_OTSU_method(src):
 
 
 #####################################################################
-input_folder = './imprint/dataset.label/original_images_2'
+input_folder = 'C:/Jill/Code/camera/calibration/perspective/fortestcode'
 output_folder = os.path.join(input_folder, 'transform')
 os.makedirs(output_folder, exist_ok=True)
 

@@ -46,17 +46,13 @@ class UNet(nn.Module):
         enc1 = self.enc1(x)
         enc2 = self.enc2(self.pool1(enc1))
         bottleneck = self.bottleneck(self.pool2(enc2))
-        
+
         up2 = self.up2(bottleneck)
-        if up2.shape[-2:] != enc2.shape[-2:]:
-            up2 = T.functional.resize(up2, size=enc2.shape[-2:])
         dec2 = self.dec2(torch.cat([up2, enc2], dim=1))
 
         up1 = self.up1(dec2)
-        if up1.shape[-2:] != enc1.shape[-2:]:
-            up1 = T.functional.resize(up1, size=enc1.shape[-2:])
         dec1 = self.dec1(torch.cat([up1, enc1], dim=1))
-        
+
         return self.final(dec1)
 
 # ============ 自訂 Dataset ============

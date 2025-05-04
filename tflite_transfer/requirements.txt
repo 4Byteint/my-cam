@@ -1,0 +1,21 @@
+# TensorFlow 
+tensorflow==2.12.0
+protobuf==3.20.3
+numpy==1.24.3
+astunparse>=1.6.0
+gast==0.4.0
+google-pasta>=0.1.1
+h5py>=2.9.0
+jax==0.3.25
+libclang>=13.0.0
+opt-einsum>=2.3.2
+typing-extensions==4.5.0
+wrapt==1.14.1
+tensorboard==2.12.0
+
+# PyTorch, ONNX 
+torch==2.0.1
+torchvision==0.15.2
+onnx==1.14.0
+onnx-tf==1.10.0
+onnx2tflite==2.0.0

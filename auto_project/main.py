@@ -10,6 +10,7 @@ from inference_segmentation import load_unet_model, predict_mask
 from PCA import analyze_orientation
 from utils.draw import draw_arrow  # 如果你要畫方向向量
 
+
 # camera setup
 picam2 = Picamera2()
 config = picam2.create_video_configuration(main={"size": config.RESOLUTION, "format": config.VIDEO_FORMAT})  # 使用 YUV420 格式

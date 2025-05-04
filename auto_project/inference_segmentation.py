@@ -109,44 +109,23 @@ def process_directory(image_dir, model, device, transform, output_dir, item):
     else:
         print("\n没有成功处理任何图片")
 
-def main():
-    parser = argparse.ArgumentParser(description='use pretrained model to predict')
-    parser.add_argument('--image_path', type=str, help='input image path (single image)')
-    parser.add_argument('--image_dir', type=str, help='input image directory (batch processing)')
-    parser.add_argument('--item', type=str, choices=['wire', 'connector', 'all'], required=True, 
-                      help='specify the target class (wire=class1, connector=class2, all=all classes)')
-    
-    args = parser.parse_args()
-    
-    if not args.image_path and not args.image_dir:
-        parser.error("must provide --image_path or --image_dir parameter")
-    
-    # 固定模型路径
+def inference_segmentation(image_path, item):
+    image_path = "test_img.jpg"
+    item = "all"  # 可選：'wire'、'connector'、'all'
+
     model_path = "./model_train/2025-04-20_00-53-10/unet-epoch234-lr0.0001.pth"
-    
-    # 创建输出目录
     output_dir = "./model_train/predict_final"
     create_dir_if_not_exists(output_dir)
-    print(f"输出目录: {output_dir}")
-    
-    # 加载模型
+
     model, device = load_model(model_path)
-    print(f"模型已加载: {model_path}")
-    
-    # 设置图像转换
     transform = T.Compose([
         T.Resize((160, 128)),
         T.ToTensor(),
     ])
     
-    if args.image_path:
-        # 处理单张图片
-        success, processing_time = process_single_image(args.image_path, model, device, transform, output_dir, args.item)
-        if success:
-            print(f"\n处理完成！处理时间: {processing_time:.4f} 秒")
-    else:
-        # 处理整个目录
-        process_directory(args.image_dir, model, device, transform, output_dir, args.item)
-
+    success, processing_time = process_single_image(image_path, model, device, transform, output_dir, item)
+    if success:
+        print(f"單張圖片處理完成，用時: {processing_time:.4f} 秒")
+        
 if __name__ == '__main__':
     main()
