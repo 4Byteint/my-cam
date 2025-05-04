@@ -5,6 +5,7 @@ import cv2
 
 ONNX_PATH = "C:/Jill/Code/camera/model_train/2025-04-20_00-53-10/unet-epoch234-lr0.0001.onnx"
 OUTPUT_PATH = "./model_train/tflite_model"
+tflite_path = "./model_train/tflite_model/unet-epoch234-lr0.tflite"
 os.makedirs(OUTPUT_PATH, exist_ok=True)
 
 
@@ -27,7 +28,7 @@ def tflite_test():
     from tflite_runtime.interpreter import Interpreter
 
     # 1) 加载 .tflite 文件
-    interpreter = Interpreter(model_path=ONNX_PATH)
+    interpreter = Interpreter(model_path=tflite_path)
     interpreter.allocate_tensors()
 
     # 2) 拿到输入／输出 tensor 信息
