@@ -14,9 +14,9 @@ picam2.configure(config)
 picam2.set_controls({
     "AfMode": 0,
     "LensPosition": 1.0,
-    #"AwbEnable": False,
-    #"ColourGains": (1.7, 0.8),
-    #"ExposureValue": -0.5
+    "AwbEnable": False,
+    "ColourGains": (1.7, 0.8),
+    "ExposureValue": -0.5
 })
 picam2.start()
 
@@ -61,7 +61,7 @@ def showRealtimeImage(frame_name):
         if key == ord('q'):
             break
         elif key == ord('b'):
-            img_name = os.path.join(base_path, f"img{base_count}_trans.png")
+            img_name = os.path.join(base_path, f"img{base_count}_circles.png")
             cv2.imwrite(img_name, dst) # change when you use calibration
             base_count += 1
     cv2.destroyAllWindows()
