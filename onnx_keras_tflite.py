@@ -33,7 +33,7 @@ def tflite_test():
     input_details  = interpreter.get_input_details()
     output_details = interpreter.get_output_details()
     
-    image_path = "./imprint/dataset.label/final_dataset_voc/PngImages/img14.png"
+    image_path = "./imprint/dataset.label/final_dataset_voc/PngImages/img67.png"
     img = cv2.imread(image_path)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     if img is None:
@@ -60,7 +60,7 @@ def tflite_test():
     # 5) 直接存为灰度图（0/255）
     
     os.makedirs("./tflite_transfer/tflite_predict", exist_ok=True)
-    cv2.imwrite("./tflite_transfer/tflite_predict/tflite_predict_img14.png", mask * 255)
+    cv2.imwrite("./tflite_transfer/tflite_predict/tflite_predict_img67.png", mask * 255)
 
 if __name__ == "__main__":
     tflite_test()
