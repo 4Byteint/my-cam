@@ -12,8 +12,6 @@ def find_edge_points(img_path, center):
     img_bgr = img.copy()
     # 轉為灰階
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    # 取得圖像寬高
-    height, width = gray.shape
     contours, _ = cv2.findContours(gray, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     # 取最大輪廓（通常是白色區塊）
     cnt = max(contours, key=cv2.contourArea)
@@ -78,7 +76,7 @@ def find_edge_points(img_path, center):
         angle_deg += 180
 
     # 在中點旁標註角度
-    text = f"{angle_deg:.1f}°"
+    text = f"{angle_deg:.1f}"
     cv2.putText(img_bgr, text, (mx-10, my-25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,255), 1)
     
     cv2.imshow("final", img_bgr)
@@ -139,8 +137,8 @@ def find_position_form_wire(image_path, min_area=10):
 ########################################################
 def main():
     # 載入新的圖像
-    image_path = "C:/Jill/Code/camera/model_train/predict_final/img9_predict_connector.png"
-    image_wire_path = "C:/Jill/Code/camera/model_train/predict_final/img9_predict_wire.png"
+    image_path = "C:/Jill/Code/camera/model_train/predict_final/img67_predict_connector.png"
+    image_wire_path = "C:/Jill/Code/camera/model_train/predict_final/img67_predict_wire.png"
     center = find_position_form_wire(image_wire_path, min_area=50)
     if center is not None:
         find_edge_points(image_path, center)

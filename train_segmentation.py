@@ -120,7 +120,7 @@ def train_model(model, dataloaders, criterion, optimizer, num_epochs=20, lr=1e-3
     os.makedirs(save_dir, exist_ok=True)
 
     for epoch in range(num_epochs):
-        print(f"\n🌟 Epoch {epoch+1}/{num_epochs}")
+        print(f"\n Epoch {epoch+1}/{num_epochs}")
 
         for phase in ['train', 'val']:
             model.train() if phase == 'train' else model.eval()
