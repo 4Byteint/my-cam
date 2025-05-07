@@ -20,6 +20,9 @@ def onnx_to_tflite():
 
     print("onnx 轉換為 tflite 完成")
 
+
+
+
 def tflite_test():
     import numpy as np
     from tflite_runtime.interpreter import Interpreter
@@ -62,5 +65,23 @@ def tflite_test():
     os.makedirs("./tflite_transfer/tflite_predict", exist_ok=True)
     cv2.imwrite("./tflite_transfer/tflite_predict/tflite_predict_img67.png", mask * 255)
 
+def check_runtime_precision(ONNX_PATH):
+    import onnxruntime as ort
+
+    sess = ort.InferenceSession(ONNX_PATH)
+
+    # 檢查第一個輸入
+    inp = sess.get_inputs()[0]
+    print("Input name:", inp.name)
+    print("Input type:", inp.type)      # e.g. 'tensor(float)' or 'tensor(float16)'
+
+    # 檢查第一個輸出
+    out = sess.get_outputs()[0]
+    print("Output name:", out.name)
+    print("Output type:", out.type)
+
+
+
 if __name__ == "__main__":
-    tflite_test()
+    #tflite_test()
+    check_runtime_precision(ONNX_PATH)
