@@ -83,5 +83,5 @@ def check_runtime_precision(ONNX_PATH):
 
 
 if __name__ == "__main__":
-    #tflite_test()
-    check_runtime_precision(ONNX_PATH)
+    tflite_test()
+    #check_runtime_precision(ONNX_PATH)
