@@ -19,6 +19,8 @@ def ROI(img, points):
     
     # 計算 ROI 的邊界框
     x, y, w, h = cv2.boundingRect(pts)
+    print(f"ROI 偏移量 (x, y): ({x}, {y})")
+    print(f"ROI 尺寸 (寬, 高): ({w}, {h})")
     cropped_roi = dst[y:y+h, x:x+w]
     # 建立白色背景並應用 mask
     bg = np.ones_like(img, np.uint8) * 255
@@ -42,11 +44,11 @@ def detect_points(image):
     contour_image = image.copy()
     cv2.drawContours(contour_image, contours, -1, (255, 0, 0), 2)
     cv2.imshow("contour_image", contour_image)
-     # 變數用來存儲最大面積矩形
+    # 變數用來存儲最大面積矩形
     largest_rectangle = None
     max_area = 0
     h, w = image.shape[:2]
-    border_threshold = 10
+    border_threshold = 5
     # 重新篩選矩形，排除接觸邊界的輪廓
     for contour in contours:
         # 逼近多邊形
@@ -91,21 +93,6 @@ def detect_points(image):
         print("未找到矩形")
     
 
-    # # **計算邊長**
-    # def euclidean_distance(pt1, pt2):
-    #     return np.sqrt((pt1[0] - pt2[0])**2 + (pt1[1] - pt2[1])**2)
-
-    # top_edge = euclidean_distance(sorted_points[0], sorted_points[1])  # 左上 → 右上
-    # right_edge = euclidean_distance(sorted_points[1], sorted_points[2])  # 右上 → 右下
-    # bottom_edge = euclidean_distance(sorted_points[2], sorted_points[3])  # 右下 → 左下
-    # left_edge = euclidean_distance(sorted_points[3], sorted_points[0])  # 左下 → 左上
-
-    # print("四條邊的長度（像素）:")
-    # print(f"上邊（左上 → 右上）: {top_edge:.2f} pixels")
-    # print(f"右邊（右上 → 右下）: {right_edge:.2f} pixels")
-    # print(f"下邊（右下 → 左下）: {bottom_edge:.2f} pixels")
-    # print(f"左邊（左下 → 左上）: {left_edge:.2f} pixels")
-
 def apply_perspective_transform(image, sorted_points):
     """
     對影像應用透視變換，將偵測到的四邊形轉換為標準矩形
@@ -132,7 +119,7 @@ def apply_perspective_transform(image, sorted_points):
         [128-1, 160-1],  # 右下角
         [0, 160-1],   # 左下角
     ], dtype=np.float32)
-
+    
     # 計算透視變換矩陣
     H = cv2.getPerspectiveTransform(sorted_points, dst_points)
 
@@ -161,7 +148,8 @@ def is_square(points, tolerance=5):
     side2 = np.linalg.norm(p3 - p2)  # 右邊
     side3 = np.linalg.norm(p3 - p4)  # 下邊
     side4 = np.linalg.norm(p4 - p1)  # 左邊
-    print(side1,side2,side3,side4)
+    print(f"{side1:.3f}", f"{side2:.3f}", f"{side3:.3f}", f"{side4:.3f}")
+
     if (abs(side1-side3) < tolerance or 
         abs(side2-side4) < tolerance or
         abs(side1-side2) < tolerance or
@@ -171,10 +159,10 @@ def is_square(points, tolerance=5):
 
 ######################################
 # 计算透视变换参数矩阵
-img_path= './calibration/perspective/img2_trans.png'
+img_path= './calibration/demo/img1_calib_step.png'
 
 # 定義透視變換的四個點
-points = np.array([(120, 0), (502, 0), (457, 367), (200, 366)]) # 框偵測的四個點
+points = np.array([(156, 41), (510, 29), (461, 349), (211, 351)]) # 框偵測的四個點
 img = cv2.imread(img_path)
 cropped_img = ROI(img, points)
 sorted_points = detect_points(cropped_img)

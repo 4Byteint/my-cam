@@ -72,7 +72,7 @@ def check_runtime_precision(ONNX_PATH):
 
     # 檢查第一個輸入
     inp = sess.get_inputs()[0]
-    print("Input name:", inp.name)
+    print("Input name:", inp.name) 
     print("Input type:", inp.type)      # e.g. 'tensor(float)' or 'tensor(float16)'
 
     # 檢查第一個輸出
@@ -83,5 +83,5 @@ def check_runtime_precision(ONNX_PATH):
 
 
 if __name__ == "__main__":
-    tflite_test()
-    #check_runtime_precision(ONNX_PATH)
+    #tflite_test()
+    check_runtime_precision(ONNX_PATH)

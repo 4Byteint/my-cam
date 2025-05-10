@@ -1,11 +1,6 @@
 import math
-from PIL import Image
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
-import os
-
-
     
 def find_edge_points(img_path, center):
     img = cv2.imread(img_path)

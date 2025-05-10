@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import cv2
 
@@ -84,22 +85,32 @@ def backproject_to_camera(u_pix, v_pix, roi_offset, H, K):
         
         
     ray_camera = reflect_point_over_mirror(ray_camera, normal_vector)
-    real_point = intersect_ray_with_y_plane(ray_camera, -20.83)
+    real_point = intersect_ray_with_y_plane(ray_camera, -22.83)
     
     return ray_camera, real_point
 
-H = np.load("../calibration/perspective_matrix_128x160.npy").astype(np.float32)
-mtx = np.load("../calibration/camera_matrix.npy")
-dist = np.load("../calibration/dist_coeff.npy")
-rvec = np.load("../calibration/rvecs.npy")
-tvec = np.load("../calibration/tvecs.npy")
-# 假設你有一個點在最終影像上是
-ray_cam, real_point = backproject_to_camera(
-    u_pix=72,
-    v_pix=131,
-    K=mtx,
-    H=H,
-    roi_offset=(120, 0)  # ROI 的左上角偏移
-)
-print("Ray in camera coordinates:", ray_cam)
-print("Real point:", real_point)
+if __name__ == "__main__":
+    here = os.path.dirname(__file__)               # …/camera/pose_estimation
+    root = os.path.abspath(os.path.join(here, '../..'))  # …/camera
+
+    # 不論 cwd 在哪，都能正確定位
+    H    = np.load(os.path.join(root, "calibration", "perspective_matrix_128x160.npy")).astype(np.float32)
+    mtx  = np.load(os.path.join(root, "calibration", "camera_matrix.npy"))
+    dist = np.load(os.path.join(root, "calibration", "dist_coeff.npy"))
+    rvec = np.load(os.path.join(root, "calibration", "rvecs.npy"))
+    tvec = np.load(os.path.join(root, "calibration", "tvecs.npy"))
+    # H = np.load("../calibration/perspective_matrix_128x160.npy").astype(np.float32)
+    # mtx = np.load("../calibration/camera_matrix.npy")
+    # dist = np.load("../calibration/dist_coeff.npy")
+    # rvec = np.load("../calibration/rvecs.npy")
+    # tvec = np.load("../calibration/tvecs.npy")
+    # 假設你有一個點在最終影像上是
+    ray_cam, real_point = backproject_to_camera(
+        u_pix=72,
+        v_pix=131,
+        K=mtx,
+        H=H,
+        roi_offset=(120, 0)  # ROI 的左上角偏移
+    )
+    print("Ray in camera coordinates:", ray_cam)
+    print("Real point:", real_point)

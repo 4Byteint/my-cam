@@ -65,7 +65,7 @@ def find_trapezoid_points(image_path):
 
 def main():
     # 在這裡修改圖像路徑
-    image_path = "./calibration/perspective/img3_trans.png"
+    image_path = "./calibration/demo/img0_calib_step.png"
     
     # 找出梯形點
     points, draw_image = find_trapezoid_points(image_path)
