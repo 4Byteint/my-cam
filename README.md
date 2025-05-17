@@ -1,3 +1,13 @@
+# Using WSL in Cursor (or VS Code)
+
+1. Press `Ctrl + Shift + P` to open the Command Palette.
+2. Search and select **Terminal: Select Default Profile**.
+3. Choose **WSL** (e.g., `Ubuntu`) as the default terminal profile.
+4. Open a new terminal — it will launch into **Linux Bash** via WSL.
+5. Activate the virtual environment:
+```
+source .venv/bin/activate
+```
 # Camera Calibration
 run
 ```
