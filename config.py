@@ -17,12 +17,12 @@ MODEL_PATH = "model.pth"
 DEVICE = "cuda"
 
 # 影像轉換設定
-POINTS = [(120, 0), (506, 0), (458, 366), (197, 369)] # 框偵測的四個點 
+POINTS = [[172.66, 63.85], [499.3, 59.53], [459.14, 351.0], [217.76, 351.0]] # 框偵測的四個點 
 PERSPECTIVE_MATRIX_PATH = "calibration/perspective_matrix_180x220.npy"
 PERSPECTIVE_SIZE = (180, 220) # (width, height)
 
 # 模型輸入大小
-MODEL_INPUT_SIZE = (160, 128) # (height, width)
+MODEL_INPUT_SIZE = (220, 180) # (height, width)
 
 # 分割後的角度分析
 MIN_REGION_AREA = 50

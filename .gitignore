@@ -1,3 +1,1 @@
-0118_softer_gel/
-0202-coarse-s*/  # 因為資料夾名稱過長，可用萬用字元 `*`
-cam-position/
+.venv*

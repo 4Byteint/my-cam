@@ -130,9 +130,8 @@ def detect_points_2(image):
 
         # 使用凸包找出外圍點
         points = np.array(points, dtype=np.float32)
-        hull = cv2.convexHull(points.reshape(-1, 1, 2))
+        hull = cv2.convexHull(points.reshape(-1, 1, 2), returnPoints=True)
         hull_points = hull.reshape(-1, 2)
-
         # 超過4點就篩選距離最遠的4個
         N = len(hull_points)
         if N > 4:
@@ -192,12 +191,15 @@ def detect_points_2(image):
     else:
         print("未能找到合適的四個角點")
         return None
+
+
+    
     
 def detect_square(image):
     """
     偵測圖像中的所有方形，並計算其特徵
     :param image: 輸入圖像
-    :return: 方形資訊列表，每個方形包含角點座標和邊長資訊
+    :return: 方形資訊列表，每個方形包含角點座標、中心點和邊長資訊，以及是否為正方形的判斷
     """
     # 複製原圖用於繪製
     output_image = image.copy()
@@ -209,12 +211,14 @@ def detect_square(image):
     cv2.imshow("edges", edges)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
     # 尋找輪廓
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cv2.drawContours(output_image, contours, -1, (0, 255, 0), 2)
     cv2.imshow("output_image", output_image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
     squares = []  # 儲存所有方形的資訊
     
     for contour in contours:
@@ -225,24 +229,13 @@ def detect_square(image):
         
         # 檢查是否為四邊形
         if len(approx) == 4:
-            # 計算面積，過濾太小的區域
-            area = cv2.contourArea(approx)
-            if area < 100:  # 可調整的閾值
-                continue
-                
             # 取得角點座標
-            corners = approx.reshape(-1, 2)
-            
+            corners = approx.reshape(-1, 2).astype(np.float32)
+            # Sub-pixel 精度優化
+            criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.01)
+            cv2.cornerSubPix(gray, corners, (5, 5), (-1, -1), criteria)
             # 確保角點順序：左上、右上、右下、左下
             corners = order_points(corners)
-            
-            # 計算邊的中點
-            midpoints = []
-            for i in range(4):
-                next_i = (i + 1) % 4
-                mid_x = (corners[i][0] + corners[next_i][0]) // 2
-                mid_y = (corners[i][1] + corners[next_i][1]) // 2
-                midpoints.append((mid_x, mid_y))
             
             # 計算邊長
             side_lengths = []
@@ -254,19 +247,17 @@ def detect_square(image):
                 )
                 side_lengths.append(length)
             
-            # 計算中點之間的距離
-            midpoint_distances = []
-            for i in range(4):
-                next_i = (i + 2) % 4  # 對角線的中點
-                distance = np.sqrt(
-                    (midpoints[next_i][0] - midpoints[i][0])**2 +
-                    (midpoints[next_i][1] - midpoints[i][1])**2
-                )
-                midpoint_distances.append(distance)
+            # 判斷是否為正方形
+            is_square_shape = is_square(side_lengths)
+            
+            # 計算中心點
+            center = np.mean(corners, axis=0)  # corners 是 shape (4, 2)
+            print(f"中心點: {center}")
             
             # 在圖像上繪製
             # 繪製方形輪廓
-            cv2.drawContours(output_image, [approx], -1, (0, 255, 0), 2)
+            contour_color = (0, 255, 0) if is_square_shape else (0, 0, 255)  # 正方形綠色，非正方形紅色
+            cv2.drawContours(output_image, [approx], -1, contour_color, 2)
             
             # 繪製角點
             for i, corner in enumerate(corners):
@@ -275,18 +266,18 @@ def detect_square(image):
                 cv2.putText(output_image, str(i), (x - 10, y - 10),
                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
             
-            # 繪製中點
-            for i, midpoint in enumerate(midpoints):
-                x, y = midpoint
-                cv2.circle(output_image, (x, y), 3, (255, 0, 0), -1)
+            # 繪製中心點
+            center_point = (int(center[0]), int(center[1]))
+            cv2.circle(output_image, center_point, 6, (0, 255, 255), -1)
+            cv2.putText(output_image, "C", (center_point[0] + 10, center_point[1]),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
             
             # 儲存方形資訊
             square_info = {
                 'corners': corners,
-                'midpoints': midpoints,
                 'side_lengths': side_lengths,
-                'midpoint_distances': midpoint_distances,
-                'area': area
+                'center': center,  # 儲存當前方形的中心點
+                'is_square': is_square_shape  # 儲存是否為正方形的判斷結果
             }
             squares.append(square_info)
             
@@ -298,16 +289,16 @@ def detect_square(image):
             print("邊長:")
             for i, length in enumerate(side_lengths):
                 print(f"  邊 {i}: {length:.1f}")
-            print("中點之間的距離:")
-            for i, distance in enumerate(midpoint_distances):
-                print(f"  距離 {i}: {distance:.1f}")
+            print(f"是否為正方形: {'是' if is_square_shape else '否'}")
     
     # 顯示結果
     cv2.imshow("Detected Squares", output_image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     
-    return squares
+    # 返回所有方形的邊長資訊和是否為正方形的判斷
+    return [{'side_lengths': square['side_lengths'], 'is_square': square['is_square']} for square in squares]
+
 
 def order_points(pts):
     """
@@ -414,32 +405,29 @@ def apply_perspective_transform(image, sorted_points):
     cv2.destroyAllWindows()
     return warped_image, H
 
-def is_square(points, tolerance=5):
+def is_square(side_lengths, tolerance=5):
     """
-    根據四個點判斷是否為正方形
-    :param points: 4 個點的 NumPy 陣列 (左上、右上、左下、右下)
-    :param tolerance: 容許的誤差範圍 (像素)，避免因數值誤差導致錯誤判斷
-    :return: True (是正方形) 或 False (不是正方形)
+    根據四個邊長判斷是否為正方形
+    :param side_lengths: 包含四個邊長的列表
+    :param tolerance: 容許的誤差範圍（像素）
+    :return: True（是正方形）或 False（不是正方形）
     """
-    if points is None or len(points) != 4:
+    if not side_lengths or len(side_lengths) != 4:
         return False
 
-    # 取四個點
-    p1, p2, p3, p4 = points  # 左上、右上、右下、左下
+    # 取得四個邊長
+    side1, side2, side3, side4 = side_lengths
 
-    # 計算四條邊長
-    side1 = np.linalg.norm(p2 - p1)  # 上邊
-    side2 = np.linalg.norm(p3 - p2)  # 右邊
-    side3 = np.linalg.norm(p3 - p4)  # 下邊
-    side4 = np.linalg.norm(p4 - p1)  # 左邊
-    print(f"{side1:.3f}", f"{side2:.3f}", f"{side3:.3f}", f"{side4:.3f}")
+    # 計算每對邊長之間的差異
+    diff1 = abs(side1 - side2)
+    diff2 = abs(side2 - side3)
+    diff3 = abs(side3 - side4)
+    diff4 = abs(side4 - side1)
 
-    if (abs(side1-side3) < tolerance or 
-        abs(side2-side4) < tolerance or
-        abs(side1-side2) < tolerance or
-        abs(side3-side4) < tolerance):
-        return True
-    else: return False
+    print(f"邊長差異：{diff1:.3f}, {diff2:.3f}, {diff3:.3f}, {diff4:.3f}")
+    
+    # 如果所有邊長差異都小於容許值，則為正方形
+    return all(diff <= tolerance for diff in [diff1, diff2, diff3, diff4])
 
 ######################################
 # 计算透视变换参数矩阵
@@ -450,12 +438,38 @@ points = np.array([(156, 41), (510, 29), (461, 349), (211, 351)]) # 框偵測的
 img = cv2.imread(img_path)
 # cropped_img = ROI(img, points)
 sorted_points = detect_points_2(img)
-# print(sorted_points)
-# transformed_img, H = apply_perspective_transform(img, sorted_points)
-# inner_square_pts = detect_square(transformed_img)
+print(sorted_points)
 
-# if is_square(inner_square_pts):
-#     # np.save("./calibration/perspective_matrix_128x160.npy", H)
-#     print("save perspective_matrix_128x160.npy")
-# else:
-#     print("not square")
+if sorted_points is not None:
+    # 更新 config.py 中的 POINTS
+    with open('config.py', 'r', encoding='utf-8') as file:
+        lines = file.readlines()
+    
+    # 找到 POINTS 行並更新
+    for i, line in enumerate(lines):
+        if line.startswith('POINTS ='):
+            # 將座標四捨五入到兩位小數
+            points_list = [[round(x, 2), round(y, 2)] for x, y in sorted_points.tolist()]
+            lines[i] = f'POINTS = {points_list} # 框偵測的四個點 \n'
+            break
+    
+    # 寫回文件
+    with open('config.py', 'w', encoding='utf-8') as file:
+        file.writelines(lines)
+    
+    print("已更新 config.py 中的 POINTS")
+    
+    transformed_img, H = apply_perspective_transform(img, sorted_points)
+    detected_squares = detect_square(transformed_img)
+
+    # 檢查是否所有檢測到的形狀都是正方形
+    if detected_squares:  # 確保有檢測到形狀
+        if all(square['is_square'] for square in detected_squares):
+            np.save("./calibration/perspective_matrix_180x220.npy", H)
+            print("所有形狀都是正方形，已保存 perspective_matrix_180x220.npy")
+        else:
+            print("不是所有形狀都是正方形，未保存矩陣")
+    else:
+        print("未檢測到任何形狀")
+else:
+    print("未能檢測到四個角點")
