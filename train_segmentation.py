@@ -12,6 +12,7 @@ from torch.utils.data import Dataset, DataLoader, random_split
 import torchvision.transforms as T
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import config
 
 # ============ 輕量化 U-Net 模型（3 類別輸出） ============
 class UNet(nn.Module):
@@ -62,7 +63,7 @@ class SegmentationDataset(Dataset):
         self.mask_dir = mask_dir
         self.image_list = sorted(os.listdir(image_dir))
         self.transform = transform
-        self.mask_resize = T.Resize((160, 128), interpolation=Image.NEAREST)
+        self.mask_resize = T.Resize(config.MODEL_INPUT_SIZE, interpolation=Image.NEAREST)
 
     def __len__(self):
         return len(self.image_list)
@@ -77,7 +78,7 @@ class SegmentationDataset(Dataset):
         if self.transform:
             image = self.transform(image)
         else:
-            image = T.ToTensor()(T.Resize((160, 128))(image))
+            image = T.ToTensor()(T.Resize(config.MODEL_INPUT_SIZE)(image))
 
         mask = torch.as_tensor(np.array(self.mask_resize(mask)), dtype=torch.long)
 

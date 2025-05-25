@@ -1,6 +1,12 @@
 import os
 import numpy as np
 import cv2
+import config
+
+# 添加 OpenCV 類型提示以解決 linter 錯誤
+from typing import Any
+cv2: Any
+
 def ROI(img, points):
     pts = np.array([points])
     mask = np.zeros(img.shape[:2], np.uint8)
@@ -22,8 +28,7 @@ def ROI(img, points):
 
     return cropped_dst_white
 
-def apply_persepctive(image, points, H):
-
+def apply_perspective(image, points, H):
     """
     計算透視變換後的影像大小，並調整偏移量，使變換後的影像不固定在 (0,0)
     :param image: 原始影像
@@ -33,60 +38,117 @@ def apply_persepctive(image, points, H):
     """
     # 轉換點為齊次座標
     points = np.array(points, dtype=np.float32).reshape(-1, 1, 2) 
-    warped_image = cv2.warpPerspective(image, H, (128, 160)) # (width, height)
-    # resize到目標大小
-    
-    # 如果你想轉換回來影像的時候可以用
-    # H_inv = np.linalg.inv(H_translated)
-    # warped_image2 = cv2.warpPerspective(warped_image, H_inv, (w, h))
+    warped_image = cv2.warpPerspective(image, H, config.PERSPECTIVE_SIZE)
     return warped_image
 
-def threshold_OTSU_method(src):
-    image = np.array(src)
-    cimage = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)  # 灰度图
-    th, dst = cv2.threshold(cimage, 200, 255, cv2.THRESH_BINARY + cv2.THRESH_TRUNC + cv2.THRESH_OTSU)
-    circles = cv2.HoughCircles(dst, cv2.HOUGH_GRADIENT, 1, 40, param1=50, param2=47, minRadius=0)
+def detect_circles(warped_diff_img, warped_color_img):
+    """
+    對相減後的圖片進行圓形檢測
+    :param warped_diff_img: 經過透視變換的差異圖片
+    :param warped_color_img: 經過透視變換的彩色原圖
+    :return: 圓心座標列表和處理後的圖片
+    """
+    # 高斯模糊去噪
+   
+   # 使用 CLAHE 增強局部對比
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    enhanced_img = clahe.apply(warped_diff_img)
+    # cv2.imshow("enhanced_img", enhanced_img)
+    gray_blurred = cv2.GaussianBlur(warped_diff_img, (5,5), 2)
+    # cv2.imshow("gray_blurred", gray_blurred)
+    # cv2.waitKey(1000)  # 等待1秒
+    # cv2.destroyAllWindows()
+    # 使用霍夫圓變換來偵測圓形壓痕
+    # miniDist: 
+    # param1: canny thershold
+    # param2: hough 累積的 thershold 越小檢測到的圓越多
+    circles = cv2.HoughCircles(enhanced_img, 
+                               cv2.HOUGH_GRADIENT, 
+                               dp=1.2, 
+                               minDist=70,
+                               param1=30, 
+                               param2=30, 
+                               minRadius=5, 
+                               maxRadius=20)
+   
+    # 使用彩色原圖作為輸出圖片
+    output_img = warped_color_img.copy()
+    circle_centers = []
+    
+    # # 圓形檢測
+    # circles = cv2.HoughCircles(
+    #     img_clahe, 
+    #     cv2.HOUGH_GRADIENT, 
+    #     dp=2,
+    #     minDist=50,
+    #     param1=20,
+    #     param2=55,
+    #     minRadius=5,
+    #     maxRadius=25
+    # )
     
     if circles is not None:
-        circles = np.uint16(np.around(circles))  # 取整
-        for i in circles[0, :]:
-            x, y, r = i[0], i[1], i[2]
-            # 畫圓
-            cv2.circle(image, (x, y), r, (0, 0, 255), 2)
-            # 畫圓心
-            cv2.circle(image, (x, y), 2, (255, 0, 0), 2)
-            # 顯示半徑資訊
-            cv2.putText(image, f"r={r}", (x - 30, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 0), 2)
-    else:
-        print("No circles detected.")
+        # 將結果轉換為浮點數，保持精確度
+        circles = circles[0]
+        
+        for idx, circle in enumerate(circles):
+            x, y, r = circle
+            
+            # 直接使用 HoughCircles 返回的浮點數座標
+            circle_centers.append((x, y))
+            
+            # 在彩色圖片上標記
+            cv2.circle(output_img, (int(x), int(y)), int(r), (0, 255, 0), 2)  # 綠色圓形
+            cv2.circle(output_img, (int(x), int(y)), 2, (0, 0, 255), 3)  # 紅色圓心
+            cv2.putText(output_img, f"#{idx}", (int(x)-10, int(y)-10),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+            
+            print(f"圓心 #{idx} 座標: ({x:.2f}, {y:.2f})")
+    
+    return circle_centers, output_img
 
-    cv2.imshow("otsu_circles", image)
-
-
-
-#####################################################################
-input_folder = 'C:/Jill/Code/camera/calibration/perspective/fortestcode'
-output_folder = os.path.join(input_folder, 'transform')
-os.makedirs(output_folder, exist_ok=True)
-
-H = np.load("./calibration/perspective_matrix_128x160.npy").astype(np.float32)
-points = np.array([(120, 0), (506, 0), (458, 366), (197, 369)]) # 框偵測的四個點 
-# 處理每一張圖片
-for filename in os.listdir(input_folder):
-    if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp')):
-        img_path = os.path.join(input_folder, filename)
-        img = cv2.imread(img_path)
-        if img is None:
-            print(f"無法讀取圖片：{img_path}")
-            continue
-
-        cropped_img = ROI(img, points)
-        # cv2.imshow("cropped_img", cropped_img)
-        warped_image = apply_persepctive(cropped_img, points, H)
-        # cv2.imshow("warped_image", warped_image)
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
-        output_path = os.path.join(output_folder, filename)
-        cv2.imwrite(output_path, warped_image)
-        print(f"已儲存：{output_path}")
+if __name__ == "__main__":
+    # 檢查並創建輸出目錄
+    output_folder = "./calibration/demo/transform"
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+        print(f"已創建目錄：{output_folder}")
+    
+    # 讀取基準圖片和樣本圖片
+    base_img = cv2.imread("./calibration/demo/img2.png")
+    sample_img = cv2.imread("./calibration/demo/img5.png")
+    
+    if base_img is None or sample_img is None:
+        print("無法讀取圖片")
+        exit()
+    
+    # 轉換為灰度圖並相減
+    base_gray = cv2.cvtColor(base_img, cv2.COLOR_BGR2GRAY)
+    sample_gray = cv2.cvtColor(sample_img, cv2.COLOR_BGR2GRAY)
+    diff_img = cv2.absdiff(base_gray, sample_gray)
+    
+    # 載入透視變換矩陣
+    H = np.load(config.PERSPECTIVE_MATRIX_PATH).astype(np.float32)
+    points = np.array(config.POINTS)
+    
+    # 對差異圖片和彩色圖片進行透視變換
+    warped_diff = apply_perspective(diff_img, points, H)
+    warped_color = apply_perspective(sample_img, points, H)  # 使用sample圖片作為彩色原圖
+    
+    # 檢測圓形
+    circle_centers, result_img = detect_circles(warped_diff, warped_color)
+    
+    # 顯示結果
+    cv2.imshow("Detected Circles", result_img)
+    
+    # 保存結果
+    output_path = os.path.join(output_folder, "detected_circles.png")
+    cv2.imwrite(output_path, result_img)
+    print(f"已保存結果圖片：{output_path}")
+    
+    
+    
+    
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 

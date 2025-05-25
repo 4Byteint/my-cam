@@ -36,26 +36,36 @@ def ROI(img, points):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     return cropped_dst_white
+
 def detect_points_2(image):
+    """
+    使用霍夫直線偵測，將相近點分群，從每群中選出最接近圖片中心的點作為角點
+    :param image: 輸入圖像
+    :return: 四個角點座標，按照左上、右上、右下、左下的順序排列
+    """
+    # 複製原圖用於繪製
+    output_image = image.copy()
+    
+    # 預處理
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (3, 3), sigmaX=1)
-    # Step 1: Edge detection
+    blurred = cv2.GaussianBlur(gray, (5, 5), sigmaX=1)
     edges = cv2.Canny(blurred, 20, 80)
+    
+    # 顯示邊緣檢測結果
     cv2.imshow("edges", edges)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-    # Step 3: HoughLinesP
-    lines = cv2.HoughLinesP(edges, rho=1, theta=np.pi / 180, threshold=150,
-                            minLineLength=100, maxLineGap=15)
+
+    # 使用霍夫變換找直線
+    lines = cv2.HoughLinesP(edges, rho=1, theta=np.pi/180, threshold=110,
+                           minLineLength=100, maxLineGap=15)
     
     if lines is None:
         print("未檢測到任何線條")
         return None
     
-    
     # 過濾靠近底邊的線條
-    height = image.shape[0]
-    width = image.shape[1]
+    height, width = image.shape[:2]
     bottom_threshold = int(height * 0.8)
     filtered_lines = []
     
@@ -71,234 +81,379 @@ def detect_points_2(image):
     
     # 繪製線條
     line_image = image.copy()
-    for i, line in enumerate(filtered_lines):
+    for line in filtered_lines:
         x1, y1, x2, y2 = line
         cv2.line(line_image, (x1, y1), (x2, y2), (0, 0, 255), 2)
-    cv2.imshow("line_image", line_image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
     
-    # 計算交點
+    # 計算所有線段的交點
     def compute_line_intersection(line1, line2, epsilon=1e-10):
-        """計算兩條線段的延伸直線交點，不管是否在線段內"""
+        """計算兩條線段的延伸直線交點"""
         x1, y1, x2, y2 = map(float, line1)
         x3, y3, x4, y4 = map(float, line2)
 
         denom = (x1 - x2)*(y3 - y4) - (y1 - y2)*(x3 - x4)
         if abs(denom) < epsilon:
-            return None  # 平行或重合
+            return None
 
         px_num = (x1*y2 - y1*x2)*(x3 - x4) - (x1 - x2)*(x3*y4 - y3*x4)
         py_num = (x1*y2 - y1*x2)*(y3 - y4) - (y1 - y2)*(x3*y4 - y3*x4)
-        px = px_num / denom
-        py = py_num / denom
+        px = np.float64(px_num) / np.float64(denom)
+        py = np.float64(py_num) / np.float64(denom)
 
-        return (px, py)  # 無條件返回延長線交點
+        return (px, py)
 
-    # 計算所有線段的交點
+    # 收集所有有效交點
     intersections = []
-    height, width = image.shape[:2]
-
+    bottom_threshold = int(height * 0.8)  # 使用與線條過濾相同的底邊閾值
     for i in range(len(filtered_lines)):
         for j in range(i + 1, len(filtered_lines)):
             pt = compute_line_intersection(filtered_lines[i], filtered_lines[j])
             if pt is not None:
                 px, py = pt
-                if 0 <= px < width and 0 <= py < height:
+                # 過濾掉太靠近底邊的交點
+                if 0 <= px < width and 0 <= py < bottom_threshold:
                     intersections.append((px, py))
-
-    # 畫出有效交點
-    for pt in intersections:
-        x, y = map(int, pt)
-        cv2.circle(line_image, (x, y), 5, (0, 255, 0), -1)
-
-    cv2.imshow("intersections", line_image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
+    
     if len(intersections) < 4:
-        print(f"找到的交點數量不足: {len(intersections)}")
+        print(f"找到的有效交點數量不足: {len(intersections)}")
         return None
     
     # 將交點轉換為 numpy 陣列
-    intersections = np.array(intersections, dtype=np.float32)
+    points = np.array(intersections, dtype=np.float32)
     
-    # 找出外圍的四個點
-    def find_corner_points(points):
-        if len(points) < 4:
-            return None
-
-        # 使用凸包找出外圍點
-        points = np.array(points, dtype=np.float32)
-        hull = cv2.convexHull(points.reshape(-1, 1, 2), returnPoints=True)
-        hull_points = hull.reshape(-1, 2)
-        # 超過4點就篩選距離最遠的4個
-        N = len(hull_points)
-        if N > 4:
-            dist_matrix = np.zeros((N, N), dtype=np.float32)
-            for i in range(N):
-                for j in range(N):
-                    dist_matrix[i][j] = np.linalg.norm(hull_points[i] - hull_points[j])
-
-            max_dist_sum = 0
-            best_points = None
+    def cluster_points(points, distance_threshold=70):
+        """
+        將相近的點分群
+        :param points: 點座標陣列
+        :param distance_threshold: 分群距離閾值
+        :return: 點群列表，每個群組包含該群的點
+        """
+        if len(points) == 0:
+            return []
             
-            for comb in itertools.combinations(hull_points, 4):
-                total = 0
-                for p1, p2 in itertools.combinations(comb, 2):
-                    total += np.linalg.norm(p1 - p2)
-                if total > max_dist_sum:
-                    max_dist_sum = total
-                    best_points = comb
-            hull_points = np.array(best_points, dtype=np.float32)
-
-        # Y 排序 → 分上下，然後 X 排序 → 左右
-        sorted_by_y = hull_points[hull_points[:, 1].argsort()]
-        top_points = sorted_by_y[:2] 
-        bottom_points = sorted_by_y[2:] 
-
-        top_sorted = top_points[top_points[:, 0].argsort()]
-        bottom_sorted = bottom_points[bottom_points[:, 0].argsort()]
-
-        return np.array([
-            top_sorted[0],      # 左上
-            top_sorted[1],      # 右上
-            bottom_sorted[1],   # 右下
-            bottom_sorted[0]    # 左下
-        ], dtype=np.float32)
-
+        # 初始化群組
+        clusters = []
+        remaining_points = points.copy()
+        
+        while len(remaining_points) > 0:
+            # 選擇第一個點作為當前群組的中心
+            current_point = remaining_points[0]
+            current_cluster = [current_point]
+            remaining_points = remaining_points[1:]
+            
+            # 尋找與當前點距離小於閾值的點
+            i = 0
+            while i < len(remaining_points):
+                if np.linalg.norm(remaining_points[i] - current_point) < distance_threshold:
+                    current_cluster.append(remaining_points[i])
+                    remaining_points = np.delete(remaining_points, i, axis=0)
+                else:
+                    i += 1
+            
+            clusters.append(np.array(current_cluster))
+        
+        return clusters
     
-    # 假設 intersections 是 np.ndarray or list of (x, y)
-    corner_points = find_corner_points(intersections)
-    print("交點數量：", len(intersections))
-    print("交點內容：", intersections)
-
-    if corner_points is not None and len(corner_points) == 4:
-
-        corner_image = image.copy()
-        for i, pt in enumerate(corner_points):
-            print(f"角點 {i}: (x={pt[0]:.2f}, y={pt[1]:.2f})")
-            cv2.circle(corner_image, tuple(pt.astype(int)), 8, (0, 255, 0), -1)
-            cv2.putText(corner_image, f"{i}", (int(pt[0] + 15), int(pt[1])),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 0, 0), 2)
-
-        # 顯示一次圖像，包含所有角點
-        cv2.imshow("Corner Points", corner_image)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
-        return corner_points
-    else:
+    def select_center_points(clusters, image_center):
+        """
+        從每個群組中選出最接近圖片中心的點
+        :param clusters: 點群列表
+        :param image_center: 圖片中心點座標
+        :return: 選出的四個角點
+        """
+        if len(clusters) < 4:
+            return None
+            
+        selected_points = []
+        for cluster in clusters:
+            # 計算群組中每個點到圖片中心的距離
+            distances = np.linalg.norm(cluster - image_center, axis=1)
+            # 選出距離最小的點
+            closest_point = cluster[np.argmin(distances)]
+            selected_points.append(closest_point)
+        
+        return np.array(selected_points, dtype=np.float32)
+    
+    # 計算圖片中心點
+    image_center = np.array([width/2, height/2], dtype=np.float32)
+    
+    # 將點分群
+    clusters = cluster_points(points)
+    print(f"找到 {len(clusters)} 個點群")
+    
+    # 在圖像上顯示分群結果
+    cluster_image = line_image.copy()
+    colors = [(0, 255, 0), (255, 0, 0), (0, 0, 255), (255, 255, 0)]
+    for i, cluster in enumerate(clusters):
+        color = colors[i % len(colors)]
+        # 計算群組的中心點用於標記數字
+        cluster_center = np.mean(cluster, axis=0)
+        # 繪製群組中的所有點
+        for point in cluster:
+            x, y = point.astype(int)
+            cv2.circle(cluster_image, (x, y), 4, color, -1)
+        # 在群組中心標記數字
+        cv2.putText(cluster_image, str(i+1), 
+                   (int(cluster_center[0]), int(cluster_center[1])),
+                   cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 2)
+    
+    # 繪製圖片中心點
+    cv2.circle(cluster_image, tuple(image_center.astype(int)), 6, (0, 255, 255), -1)
+    cv2.putText(cluster_image, "C", (int(image_center[0] + 10), int(image_center[1])),
+               cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+    
+    cv2.imshow("Clustered Points", cluster_image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    
+    # 從每個群組中選出最接近中心的點
+    selected_points = select_center_points(clusters, image_center)
+    
+    if selected_points is None or len(selected_points) != 4:
         print("未能找到合適的四個角點")
         return None
-
-
     
+    # 使用 order_points 函數確保角點順序
+    ordered_points = order_points(selected_points)
     
+    # 使用 cornerSubPix 進行亞像素級別的角點精確定位
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.01)
+    # 將點轉換為正確的格式
+    corners = ordered_points.reshape(-1, 1, 2).astype(np.float32)
+    # 使用 cornerSubPix 進行精確定位
+    cv2.cornerSubPix(gray, corners, (3, 3), (-1, -1), criteria)
+    # 轉換回原來的格式
+    ordered_points = corners.reshape(-1, 2)
+    
+    # 在圖像上繪製最終結果
+    final_image = line_image.copy()
+    # 繪製所有交點
+    for pt in intersections:
+        x, y = map(int, pt)
+        cv2.circle(final_image, (x, y), 3, (0, 255, 0), -1)
+    
+    # 繪製選中的四個角點
+    for i, pt in enumerate(ordered_points):
+        x, y = pt.astype(int)
+        cv2.circle(final_image, (x, y), 5, (255, 0, 0), -1)
+        cv2.putText(final_image, str(i), (x + 10, y + 10),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+    
+    # 顯示結果
+    cv2.imshow("Final Points", final_image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    
+    print("檢測到的角點座標：")
+    for i, pt in enumerate(ordered_points):
+        print(f"角點 {i}: ({pt[0]:.3f}, {pt[1]:.3f})")
+    
+    # 在圖像上顯示過濾後的交點
+    filtered_points_image = line_image.copy()
+    for pt in intersections:
+        x, y = map(int, pt)
+        cv2.circle(filtered_points_image, (x, y), 4, (0, 255, 0), -1)
+    
+    # 繪製底邊閾值線
+    cv2.line(filtered_points_image, (0, bottom_threshold), 
+             (width, bottom_threshold), (0, 0, 255), 2)
+    cv2.putText(filtered_points_image, "Bottom Threshold", 
+                (10, bottom_threshold - 10),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+    
+    cv2.imshow("Filtered Intersection Points", filtered_points_image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    
+    return ordered_points
+
 def detect_square(image):
     """
-    偵測圖像中的所有方形，並計算其特徵
+    偵測圖像中的所有矩形，並計算其特徵
     :param image: 輸入圖像
-    :return: 方形資訊列表，每個方形包含角點座標、中心點和邊長資訊，以及是否為正方形的判斷
+    :return: 矩形資訊列表，每個矩形包含角點座標、中心點和邊長資訊，以及是否為正方形的判斷
     """
     # 複製原圖用於繪製
     output_image = image.copy()
     
     # 預處理
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    edges = cv2.Canny(blurred, 50, 150)
+    blurred = cv2.medianBlur(gray, 3)
+    edges = cv2.Canny(blurred, 50, 130)
     cv2.imshow("edges", edges)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-
-    # 尋找輪廓
-    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    cv2.drawContours(output_image, contours, -1, (0, 255, 0), 2)
-    cv2.imshow("output_image", output_image)
+    # 定義結構元素
+    kernel = np.ones((5, 5), np.uint8)  # 5x5 的矩陣作為結構元素
+    # 使用閉合操作填補斷裂的線段
+    closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
+    cv2.imshow("closed", closed)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-
-    squares = []  # 儲存所有方形的資訊
+    # 尋找輪廓
+    contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
+    # 只保留矩形輪廓
+    rectangular_contours = []
     for contour in contours:
+        # 計算輪廓周長
+        peri = cv2.arcLength(contour, True)
+        # 近似多邊形
+        approx = cv2.approxPolyDP(contour, 0.01* peri, True)
+        
+        # 檢查是否為四邊形
+        if len(approx) == 4:
+            # 計算輪廓的面積
+            area = cv2.contourArea(contour)
+            # 計算最小外接矩形
+            rect = cv2.minAreaRect(contour)
+            box = cv2.boxPoints(rect)
+            box = np.int32(box)
+            # 計算最小外接矩形的面積
+            rect_area = cv2.contourArea(box)
+            
+            # 如果輪廓面積與最小外接矩形面積的比值接近1，則認為是矩形
+            if area / rect_area > 0.85:
+                rectangular_contours.append(contour)
+    
+    # 繪製所有矩形輪廓
+    contour_image = image.copy()
+    cv2.drawContours(contour_image, rectangular_contours, -1, (0, 255, 0), 2)
+    cv2.imshow("Rectangular Contours", contour_image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    
+    # 計算每個矩形輪廓的左上角點
+    contour_info = []
+    for contour in rectangular_contours:
+        # 計算輪廓的邊界框
+        x, y, w, h = cv2.boundingRect(contour)
+        contour_info.append({
+            'contour': contour,
+            'top_left': (x, y),  # 左上角點
+            'height': y  # 用於上到下排序
+        })
+    
+    # 先按照上到下排序（使用y座標）
+    contour_info.sort(key=lambda x: x['height'])
+    
+    # 將輪廓分組（按照y座標相近的歸為同一行）
+    rows = []
+    current_row = []
+    y_threshold = 20  # 同一行的y座標差異閾值
+    
+    for info in contour_info:
+        if not current_row:
+            current_row.append(info)
+        else:
+            # 如果當前輪廓與當前行的第一個輪廓y座標相近，加入當前行
+            if abs(info['height'] - current_row[0]['height']) < y_threshold:
+                current_row.append(info)
+            else:
+                # 對當前行按照左到右排序
+                current_row.sort(key=lambda x: x['top_left'][0])
+                rows.append(current_row)
+                current_row = [info]
+    
+    # 處理最後一行
+    if current_row:
+        current_row.sort(key=lambda x: x['top_left'][0])
+        rows.append(current_row)
+    
+    # 合併所有行
+    sorted_contours = []
+    for row in rows:
+        sorted_contours.extend([info['contour'] for info in row])
+    
+    # 繪製排序後的輪廓
+    cv2.drawContours(output_image, sorted_contours, -1, (0, 255, 0), 2)
+    cv2.imshow("Sorted Rectangular Contours", output_image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    
+    squares = []  # 儲存所有矩形的資訊
+    
+    # 處理排序後的輪廓
+    for i, contour in enumerate(sorted_contours):
         # 計算輪廓周長
         peri = cv2.arcLength(contour, True)
         # 近似多邊形
         approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
         
-        # 檢查是否為四邊形
-        if len(approx) == 4:
-            # 取得角點座標
-            corners = approx.reshape(-1, 2).astype(np.float32)
-            # Sub-pixel 精度優化
-            criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.01)
-            cv2.cornerSubPix(gray, corners, (5, 5), (-1, -1), criteria)
-            # 確保角點順序：左上、右上、右下、左下
-            corners = order_points(corners)
-            
-            # 計算邊長
-            side_lengths = []
-            for i in range(4):
-                next_i = (i + 1) % 4
-                length = np.sqrt(
-                    (corners[next_i][0] - corners[i][0])**2 +
-                    (corners[next_i][1] - corners[i][1])**2
-                )
-                side_lengths.append(length)
-            
-            # 判斷是否為正方形
-            is_square_shape = is_square(side_lengths)
-            
-            # 計算中心點
-            center = np.mean(corners, axis=0)  # corners 是 shape (4, 2)
-            print(f"中心點: {center}")
-            
-            # 在圖像上繪製
-            # 繪製方形輪廓
-            contour_color = (0, 255, 0) if is_square_shape else (0, 0, 255)  # 正方形綠色，非正方形紅色
-            cv2.drawContours(output_image, [approx], -1, contour_color, 2)
-            
-            # 繪製角點
-            for i, corner in enumerate(corners):
-                x, y = corner.astype(int)
-                cv2.circle(output_image, (x, y), 5, (0, 0, 255), -1)
-                cv2.putText(output_image, str(i), (x - 10, y - 10),
-                          cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-            
-            # 繪製中心點
-            center_point = (int(center[0]), int(center[1]))
-            cv2.circle(output_image, center_point, 6, (0, 255, 255), -1)
-            cv2.putText(output_image, "C", (center_point[0] + 10, center_point[1]),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-            
-            # 儲存方形資訊
-            square_info = {
-                'corners': corners,
-                'side_lengths': side_lengths,
-                'center': center,  # 儲存當前方形的中心點
-                'is_square': is_square_shape  # 儲存是否為正方形的判斷結果
-            }
-            squares.append(square_info)
-            
-            # 輸出資訊
-            print(f"\n方形 {len(squares)}:")
-            print("角點座標:")
-            for i, corner in enumerate(corners):
-                print(f"  角點 {i}: ({corner[0]:.1f}, {corner[1]:.1f})")
-            print("邊長:")
-            for i, length in enumerate(side_lengths):
-                print(f"  邊 {i}: {length:.1f}")
-            print(f"是否為正方形: {'是' if is_square_shape else '否'}")
+        # 取得角點座標
+        corners = approx.reshape(-1, 2).astype(np.float32)
+        
+        # 使用 cornerSubPix 進行亞像素級別的角點精確定位
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.001)
+        # 將點轉換為正確的格式
+        corners = corners.reshape(-1, 1, 2)
+        cv2.cornerSubPix(gray, corners, (5, 5), (-1, -1), criteria)
+        corners = corners.reshape(-1, 2)
+        
+        # 確保角點順序：左上、右上、右下、左下
+        corners = order_points(corners)
+        
+        # 計算邊長
+        side_lengths = []
+        for i in range(4):
+            next_i = (i + 1) % 4
+            length = np.sqrt(
+                (corners[next_i][0] - corners[i][0])**2 +
+                (corners[next_i][1] - corners[i][1])**2
+            )
+            side_lengths.append(length)
+        
+        # 判斷是否為正方形
+        is_square_shape = is_square(side_lengths)
+        
+        # 計算中心點
+        center = np.mean(corners, axis=0)
+        print(f"中心點: {center}")
+        
+        # 在圖像上繪製
+        # 繪製矩形輪廓
+        contour_color = (0, 255, 0) if is_square_shape else (0, 0, 255)  # 正方形綠色，非正方形紅色
+        cv2.drawContours(output_image, [approx], -1, contour_color, 2)
+        
+        # 繪製角點
+        for i, corner in enumerate(corners):
+            x, y = corner.astype(int)
+            cv2.circle(output_image, (x, y), 5, (0, 0, 255), -1)
+            cv2.putText(output_image, str(i), (x - 10, y - 10),
+                      cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+        
+        # 繪製中心點
+        center_point = (int(center[0]), int(center[1]))
+        cv2.circle(output_image, center_point, 6, (0, 255, 255), -1)
+        cv2.putText(output_image, "C", (center_point[0] + 10, center_point[1]),
+                  cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+        
+        # 儲存矩形資訊
+        square_info = {
+            'corners': corners,
+            'side_lengths': side_lengths,
+            'center': center,
+            'is_square': is_square_shape
+        }
+        squares.append(square_info)
+        
+        # 輸出資訊
+        print(f"\n矩形 {len(squares)}:")
+        print("角點座標:")
+        for i, corner in enumerate(corners):
+            print(f"  角點 {i}: ({corner[0]:.3f}, {corner[1]:.3f})")
+        print("邊長:")
+        for i, length in enumerate(side_lengths):
+            print(f"  邊 {i}: {length:.3f}")
+        print(f"是否為正方形: {'是' if is_square_shape else '否'}")
+        print("")
     
     # 顯示結果
-    cv2.imshow("Detected Squares", output_image)
+    cv2.imshow("Detected Rectangles", output_image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     
-    # 返回所有方形的邊長資訊和是否為正方形的判斷
-    return [{'side_lengths': square['side_lengths'], 'is_square': square['is_square']} for square in squares]
-
+    return squares
 
 def order_points(pts):
     """
@@ -319,63 +474,6 @@ def order_points(pts):
     
     return rect
 
-def detect_points(image):
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    edges = cv2.Canny(gray, 50, 150)
-    kernel = np.ones((3,3), np.uint8)
-    edges = cv2.dilate(edges, kernel, iterations=1)
-    cv2.imshow("edges", edges)
-    contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    contour_image = image.copy()
-    cv2.drawContours(contour_image, contours, -1, (255, 0, 0), 2)
-    cv2.imshow("contour_image", contour_image)
-    # 變數用來存儲最大面積矩形
-    largest_rectangle = None
-    max_area = 0
-    h, w = image.shape[:2]
-    border_threshold = 5
-    # 重新篩選矩形，排除接觸邊界的輪廓
-    for contour in contours:
-        # 逼近多邊形
-        epsilon = 0.02 * cv2.arcLength(contour, True)
-        approx = cv2.approxPolyDP(contour, epsilon, True)
-        # 只保留四邊形
-        if len(approx) == 4:
-            area = cv2.contourArea(approx)
-            x, y, w_rect, h_rect = cv2.boundingRect(approx)  # 取得矩形邊界框
-            # 過濾掉接觸圖片邊界的矩形
-            if (x < border_threshold or y < border_threshold or
-                x + w_rect > w - border_threshold or y + h_rect > h - border_threshold):
-                continue  # 跳過這個輪廓
-            if area > max_area :
-                max_area = area
-                largest_rectangle = approx
-    # 在圖像上繪製最大矩形
-    final_image = image.copy()
-    if largest_rectangle is not None:
-        cv2.drawContours(final_image, [largest_rectangle], -1, (0, 255, 0), 3)
-    cv2.imshow("final_image", final_image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-    
-    if largest_rectangle is not None:
-        largest_rect_points = largest_rectangle.reshape(-1, 2)
-         # 依照 (x+y) 值排序以確保點順序正確
-        # (左上, 右上, 左下, 右下)
-        sorted_points = sorted(largest_rect_points, key=lambda p: (p[1], p[0]))  # 先依 y 排序，再依 x 排序
-
-        # 確保順序為: 左上、右上、左下、右下
-        if sorted_points[0][0] > sorted_points[1][0]:
-            sorted_points[0], sorted_points[1] = sorted_points[1], sorted_points[0]  # 確保左上在前
-        if sorted_points[2][0] < sorted_points[3][0]:
-            sorted_points[2], sorted_points[3] = sorted_points[3], sorted_points[2]  # 確保右下在前
-            
-        print("最大矩形的四個角點座標:")
-        for i, point in enumerate(sorted_points):
-            print(f"Point {i+1}: {point}")
-        return sorted_points
-    else:
-        print("未找到矩形")
 
 def apply_perspective_transform(image, sorted_points):
     """
@@ -431,10 +529,10 @@ def is_square(side_lengths, tolerance=5):
 
 ######################################
 # 计算透视变换参数矩阵
-img_path= './calibration/demo/img0.png'
+img_path= './calibration/demo/img5.png'
 
 # 定義透視變換的四個點
-points = np.array([(156, 41), (510, 29), (461, 349), (211, 351)]) # 框偵測的四個點
+
 img = cv2.imread(img_path)
 # cropped_img = ROI(img, points)
 sorted_points = detect_points_2(img)
@@ -448,8 +546,8 @@ if sorted_points is not None:
     # 找到 POINTS 行並更新
     for i, line in enumerate(lines):
         if line.startswith('POINTS ='):
-            # 將座標四捨五入到兩位小數
-            points_list = [[round(x, 2), round(y, 2)] for x, y in sorted_points.tolist()]
+            # 將座標四捨五入到三位小數
+            points_list = [[round(x, 3), round(y, 3)] for x, y in sorted_points.tolist()]
             lines[i] = f'POINTS = {points_list} # 框偵測的四個點 \n'
             break
     
@@ -465,6 +563,36 @@ if sorted_points is not None:
     # 檢查是否所有檢測到的形狀都是正方形
     if detected_squares:  # 確保有檢測到形狀
         if all(square['is_square'] for square in detected_squares):
+            # 將所有正方形的角點存入config.py
+            square_points_list = []
+            for square in detected_squares:
+                # 將角點四捨五入到兩位小數
+                corners = [[round(x, 2), round(y, 2)] for x, y in square['corners'].tolist()]
+                square_points_list.append(corners)
+            
+            # 更新config.py
+            with open('config.py', 'r', encoding='utf-8') as file:
+                lines = file.readlines()
+            
+            # 檢查是否已存在SQUARE_POINTS
+            square_points_exists = False
+            for i, line in enumerate(lines):
+                if line.startswith('SQUARE_POINTS ='):
+                    lines[i] = f'SQUARE_POINTS = {square_points_list} # 偵測到的正方形角點\n'
+                    square_points_exists = True
+                    break
+            
+            # 如果不存在，則在文件末尾添加
+            if not square_points_exists:
+                lines.append(f'\nSQUARE_POINTS = {square_points_list} # 偵測到的正方形角點\n')
+            
+            # 寫回文件
+            with open('config.py', 'w', encoding='utf-8') as file:
+                file.writelines(lines)
+            
+            print("已更新 config.py 中的 SQUARE_POINTS")
+            print(f"檢測到 {len(square_points_list)} 個正方形的角點")
+            
             np.save("./calibration/perspective_matrix_180x220.npy", H)
             print("所有形狀都是正方形，已保存 perspective_matrix_180x220.npy")
         else:

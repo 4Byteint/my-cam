@@ -31,12 +31,19 @@ for fname in images:
         
 # calibration: 誤差/內參/畸變參數/旋轉向量/平移向量
 ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
-print('mtx: ',mtx)
-print('dist: ',dist)
-np.save('./calibration/camera_matrix.npy', mtx)
-np.save('./calibration/dist_coeff.npy', dist)
-np.save('./calibration/rvecs.npy', rvecs)
-np.save('./calibration/tvecs.npy', tvecs)
+
+print('\n=== 相機校準結果 ===')
+print('\n1. 相機內參矩陣 (mtx):')
+print(mtx)
+print('\n2. 畸變係數 (dist):')
+print(dist)
+
+# 保存校準結果
+np.save('./calibration/camera_matrix_mm.npy', mtx)
+np.save('./calibration/dist_coeff_mm.npy', dist)
+np.save('./calibration/rvecs_mm.npy', rvecs)
+np.save('./calibration/tvecs_mm.npy', tvecs)
+
 # undistort
 img = cv.imread('./calibration/final/img12_calib.png')
 h,  w = img.shape[:2]
