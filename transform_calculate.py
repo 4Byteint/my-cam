@@ -58,7 +58,7 @@ def detect_points_2(image):
 
     # 使用霍夫變換找直線
     lines = cv2.HoughLinesP(edges, rho=1, theta=np.pi/180, threshold=110,
-                           minLineLength=100, maxLineGap=15)
+                           minLineLength=100, maxLineGap=10)
     
     if lines is None:
         print("未檢測到任何線條")
@@ -275,184 +275,161 @@ def detect_square(image):
     """
     # 複製原圖用於繪製
     output_image = image.copy()
+    height, width = image.shape[:2]
+    
+    # 設定邊界閾值（距離圖像邊緣的最小距離）
+    border_threshold = 5  # 可以根據需要調整
     
     # 預處理
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     blurred = cv2.medianBlur(gray, 3)
-    edges = cv2.Canny(blurred, 50, 130)
+    edges = cv2.Canny(blurred, 20, 130)
     cv2.imshow("edges", edges)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     # 定義結構元素
-    kernel = np.ones((5, 5), np.uint8)  # 5x5 的矩陣作為結構元素
+    # kernel = np.ones((3, 3), np.uint8)  # 5x5 的矩陣作為結構元素
     # 使用閉合操作填補斷裂的線段
-    closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
-    cv2.imshow("closed", closed)
+    # closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
+    # cv2.imshow("closed", closed)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    # 尋找輪廓
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cv2.drawContours(output_image, contours, -1, (0, 255, 0), 2)
+    cv2.imshow("contours", output_image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-    # 尋找輪廓
-    contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
+    # 根據上到下，左到右的順序對輪廓進行排序
+    contours = sorted(contours, key=lambda contour: (cv2.boundingRect(contour)[1], cv2.boundingRect(contour)[0]))
+
     # 只保留矩形輪廓
-    rectangular_contours = []
+    squares = []
+    rectangles = []
     for contour in contours:
         # 計算輪廓周長
         peri = cv2.arcLength(contour, True)
         # 近似多邊形
-        approx = cv2.approxPolyDP(contour, 0.01* peri, True)
-        
+        approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
         # 檢查是否為四邊形
         if len(approx) == 4:
-            # 計算輪廓的面積
-            area = cv2.contourArea(contour)
-            # 計算最小外接矩形
-            rect = cv2.minAreaRect(contour)
-            box = cv2.boxPoints(rect)
-            box = np.int32(box)
-            # 計算最小外接矩形的面積
-            rect_area = cv2.contourArea(box)
+            # 計算輪廓的邊界框
+            x, y, w, h = cv2.boundingRect(contour)
             
-            # 如果輪廓面積與最小外接矩形面積的比值接近1，則認為是矩形
-            if area / rect_area > 0.85:
-                rectangular_contours.append(contour)
-    
-    # 繪製所有矩形輪廓
-    contour_image = image.copy()
-    cv2.drawContours(contour_image, rectangular_contours, -1, (0, 255, 0), 2)
-    cv2.imshow("Rectangular Contours", contour_image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-    
-    # 計算每個矩形輪廓的左上角點
-    contour_info = []
-    for contour in rectangular_contours:
-        # 計算輪廓的邊界框
-        x, y, w, h = cv2.boundingRect(contour)
-        contour_info.append({
-            'contour': contour,
-            'top_left': (x, y),  # 左上角點
-            'height': y  # 用於上到下排序
-        })
-    
-    # 先按照上到下排序（使用y座標）
-    contour_info.sort(key=lambda x: x['height'])
-    
-    # 將輪廓分組（按照y座標相近的歸為同一行）
-    rows = []
-    current_row = []
-    y_threshold = 20  # 同一行的y座標差異閾值
-    
-    for info in contour_info:
-        if not current_row:
-            current_row.append(info)
-        else:
-            # 如果當前輪廓與當前行的第一個輪廓y座標相近，加入當前行
-            if abs(info['height'] - current_row[0]['height']) < y_threshold:
-                current_row.append(info)
-            else:
-                # 對當前行按照左到右排序
-                current_row.sort(key=lambda x: x['top_left'][0])
-                rows.append(current_row)
-                current_row = [info]
-    
-    # 處理最後一行
-    if current_row:
-        current_row.sort(key=lambda x: x['top_left'][0])
-        rows.append(current_row)
-    
-    # 合併所有行
-    sorted_contours = []
-    for row in rows:
-        sorted_contours.extend([info['contour'] for info in row])
-    
-    # 繪製排序後的輪廓
-    cv2.drawContours(output_image, sorted_contours, -1, (0, 255, 0), 2)
-    cv2.imshow("Sorted Rectangular Contours", output_image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-    
-    squares = []  # 儲存所有矩形的資訊
-    
-    # 處理排序後的輪廓
-    for i, contour in enumerate(sorted_contours):
-        # 計算輪廓周長
-        peri = cv2.arcLength(contour, True)
-        # 近似多邊形
-        approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
+            # 篩選條件：
+            # 1. 檢查是否太靠近圖像邊緣
+            if (x < border_threshold or 
+                y < border_threshold or 
+                x + w > width - border_threshold or 
+                y + h > height - border_threshold):
+                continue
+                
+            # 2. 檢查面積是否太小
+            area = cv2.contourArea(contour)
+            if area < 20:  # 可以根據需要調整面積閾值
+                continue
+            
+            # 將角點轉換為正確的格式
+            corners = approx.reshape(-1, 2).astype(np.float32)
+            # corners = corners.reshape(-1, 1, 2)  # 轉換為 OpenCV 需要的格式
+            
+            # 使用 cornerSubPix 進行精確定位
+            criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.001)
+            cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+            
+            # 轉換回原來的格式並排序
+            # corners = corners.reshape(-1, 2)
+            corners = order_points(corners)
+            # rectangles.append((x, y, w, h, corners))
+            
+            # 計算邊長
+            side_lengths = []
+            for i in range(4):
+                next_i = (i + 1) % 4
+                length = np.sqrt(
+                    (corners[next_i][0] - corners[i][0])**2 +
+                    (corners[next_i][1] - corners[i][1])**2
+                )
+                side_lengths.append(length)
+            
+            # 判斷是否為正方形
+            is_square_shape = is_square(side_lengths)
+            # 在圖像上繪製
+            # 繪製矩形輪廓
+            contour_color = (0, 255, 0) if is_square_shape else (0, 0, 255)  # 綠色為正方形，紅色為矩形
+            cv2.drawContours(output_image, [approx], -1, contour_color, 2)
+            
+            # 繪製角點
+            for i, corner in enumerate(corners):
+                x, y = corner.astype(int)
+                cv2.circle(output_image, (x, y), 5, (0, 0, 255), -1)
+                cv2.putText(output_image, str(i), (x - 10, y - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+
+            # 儲存矩形資訊
+            square_info = {
+                'corners': corners,
+                'side_lengths': side_lengths,
+                'is_square': is_square_shape
+            }
+            squares.append(square_info)
+            
+            # 輸出資訊
+            print(f"\n矩形 {len(squares)}:")
+            print("角點座標:")
+            for i, corner in enumerate(corners):
+                print(f"  角點 {i}: ({corner[0]:.3f}, {corner[1]:.3f})")
+            print("邊長:")
+            for i, length in enumerate(side_lengths):
+                print(f"  邊 {i}: {length:.3f}")
+            print(f"是否為正方形: {'是' if is_square_shape else '否'}")
+            print("--------------------------------")
+    # # 用來儲存中間區域的輪廓
+    # mid_square = []
+    # print(len(rectangles))
+    # # 處理每對矩形（外框和內框）
+    # for i in range(0, len(rectangles), 2):
+    #     if i + 1 >= len(rectangles):
+    #         break  # 如果沒有成對的矩形，則跳過
+
+    #     # 取出外框和內框
+    #     outer_rect = rectangles[i]     # 外框（面積最大的矩形）
+    #     inner_rect = rectangles[i + 1]  # 內框（面積第二大的矩形）
+
+    #     # 創建二值化圖像來繪製外框和內框
+    #     outer_mask = np.zeros_like(gray)
+    #     inner_mask = np.zeros_like(gray)
+
+    #     # 外框
+    #     cv2.rectangle(outer_mask, (outer_rect[0], outer_rect[1]),
+    #                 (outer_rect[0] + outer_rect[2], outer_rect[1] + outer_rect[3]), 255, -1)
         
-        # 取得角點座標
-        corners = approx.reshape(-1, 2).astype(np.float32)
-        
-        # 使用 cornerSubPix 進行亞像素級別的角點精確定位
-        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.001)
-        # 將點轉換為正確的格式
-        corners = corners.reshape(-1, 1, 2)
-        cv2.cornerSubPix(gray, corners, (5, 5), (-1, -1), criteria)
-        corners = corners.reshape(-1, 2)
-        
-        # 確保角點順序：左上、右上、右下、左下
-        corners = order_points(corners)
-        
-        # 計算邊長
-        side_lengths = []
-        for i in range(4):
-            next_i = (i + 1) % 4
-            length = np.sqrt(
-                (corners[next_i][0] - corners[i][0])**2 +
-                (corners[next_i][1] - corners[i][1])**2
-            )
-            side_lengths.append(length)
-        
-        # 判斷是否為正方形
-        is_square_shape = is_square(side_lengths)
-        
-        # 計算中心點
-        center = np.mean(corners, axis=0)
-        print(f"中心點: {center}")
-        
-        # 在圖像上繪製
-        # 繪製矩形輪廓
-        contour_color = (0, 255, 0) if is_square_shape else (0, 0, 255)  # 正方形綠色，非正方形紅色
-        cv2.drawContours(output_image, [approx], -1, contour_color, 2)
-        
-        # 繪製角點
-        for i, corner in enumerate(corners):
-            x, y = corner.astype(int)
-            cv2.circle(output_image, (x, y), 5, (0, 0, 255), -1)
-            cv2.putText(output_image, str(i), (x - 10, y - 10),
-                      cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-        
-        # 繪製中心點
-        center_point = (int(center[0]), int(center[1]))
-        cv2.circle(output_image, center_point, 6, (0, 255, 255), -1)
-        cv2.putText(output_image, "C", (center_point[0] + 10, center_point[1]),
-                  cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-        
-        # 儲存矩形資訊
-        square_info = {
-            'corners': corners,
-            'side_lengths': side_lengths,
-            'center': center,
-            'is_square': is_square_shape
-        }
-        squares.append(square_info)
-        
-        # 輸出資訊
-        print(f"\n矩形 {len(squares)}:")
-        print("角點座標:")
-        for i, corner in enumerate(corners):
-            print(f"  角點 {i}: ({corner[0]:.3f}, {corner[1]:.3f})")
-        print("邊長:")
-        for i, length in enumerate(side_lengths):
-            print(f"  邊 {i}: {length:.3f}")
-        print(f"是否為正方形: {'是' if is_square_shape else '否'}")
-        print("")
-    
+    #     # 內框
+    #     cv2.rectangle(inner_mask, (inner_rect[0], inner_rect[1]),
+    #                 (inner_rect[0] + inner_rect[2], inner_rect[1] + inner_rect[3]), 255, -1)
+
+    #     # 計算外框和內框之間的區域（中間區域）
+    #     middle_area = cv2.subtract(outer_mask, inner_mask)
+
+    #     # 查找中間區域的輪廓
+    #     middle_contours, _ = cv2.findContours(middle_area, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    #     # 將中間區域的輪廓加入 mid_square 列表
+    #     for contour in middle_contours:
+    #         mid_square.append(contour)
+    #         # 繪製中間區域的輪廓
+    #         cv2.drawContours(output_image, [contour], -1, (0, 255, 255), 2)
+
+    # # 顯示結果
+    # cv2.imshow("Middle Contours", output_image)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
     # 顯示結果
     cv2.imshow("Detected Rectangles", output_image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-    
+    print(type(squares))
     return squares
 
 def order_points(pts):
@@ -529,7 +506,7 @@ def is_square(side_lengths, tolerance=5):
 
 ######################################
 # 计算透视变换参数矩阵
-img_path= './calibration/demo/img5.png'
+img_path= './calibration/demo/img6.png'
 
 # 定義透視變換的四個點
 
@@ -567,7 +544,7 @@ if sorted_points is not None:
             square_points_list = []
             for square in detected_squares:
                 # 將角點四捨五入到兩位小數
-                corners = [[round(x, 2), round(y, 2)] for x, y in square['corners'].tolist()]
+                corners = [[round(x, 3), round(y, 3)] for x, y in square['corners'].tolist()]
                 square_points_list.append(corners)
             
             # 更新config.py
