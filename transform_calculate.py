@@ -301,8 +301,37 @@ def detect_square(image):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     
-    # 根據上到下，左到右的順序對輪廓進行排序
-    contours = sorted(contours, key=lambda contour: (cv2.boundingRect(contour)[1], cv2.boundingRect(contour)[0]))
+    # 計算所有輪廓的中心點
+    centers = []
+    for contour in contours:
+        M = cv2.moments(contour)
+        if M["m00"] != 0:
+            cx = int(M["m10"] / M["m00"])
+            cy = int(M["m01"] / M["m00"])
+            centers.append((cx, cy, contour))
+    
+    # 計算所有中心點的平均位置
+    if centers:
+        avg_x = sum(x for x, _, _ in centers) / len(centers)
+        avg_y = sum(y for _, y, _ in centers) / len(centers)
+        
+        # 將輪廓分為上下兩組
+        top_contours = []
+        bottom_contours = []
+        
+        for cx, cy, contour in centers:
+            if cy < avg_y:  # 上方的輪廓
+                top_contours.append((cx, contour))
+            else:  # 下方的輪廓
+                bottom_contours.append((cx, contour))
+        
+        # 排序上方的輪廓（左到右）
+        top_contours.sort(key=lambda x: x[0])
+        # 排序下方的輪廓（左到右）
+        bottom_contours.sort(key=lambda x: x[0])
+        
+        # 合併輪廓，按照左上->右上->左下->右下的順序
+        contours = [contour for _, contour in top_contours] + [contour for _, contour in bottom_contours]
 
     # 只保留矩形輪廓
     squares = []
