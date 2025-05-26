@@ -92,8 +92,8 @@ def generate_square(x, y, size=5.0):
     return [
         (x, y),
         (x + size, y),
-        (x + size, y - size),
-        (x, y - size),
+        (x + size, y + size),
+        (x, y + size),
     ]
 
 # 示例使用
@@ -115,8 +115,8 @@ if __name__ == "__main__":
     world_square_origins = [
         (-7.0, 41.5),
         (2, 41.5),
-        (-7, 32.5),
-        (2, 32.5)
+        (-7, 27.5),
+        (2, 27.5)
     ]
     world_square_pts = [generate_square(x, y) for x, y in world_square_origins]
     
