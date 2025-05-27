@@ -92,8 +92,8 @@ def generate_square(x, y, size=5.0):
     return [
         (x, y),
         (x + size, y),
-        (x + size, y + size),
-        (x, y + size),
+        (x + size, y - size),
+        (x, y - size),
     ]
 
 # 示例使用
@@ -104,22 +104,15 @@ if __name__ == "__main__":
         (9, 23.5),
         (-9, 23.5)
     ]
-    # 上下左右中心點
-    world_center_pts = [
-        (0.0, 45.5),
-        (0.0, 23.5),
-        (-9, 34.5),
-        (9, 34.5),
-        (0.0, 34.5)
-    ]
+
     world_square_origins = [
         (-7.0, 41.5),
         (2, 41.5),
-        (-7, 27.5),
-        (2, 27.5)
+        (-7, 32.5),
+        (2, 32.5)
     ]
     world_square_pts = [generate_square(x, y) for x, y in world_square_origins]
-    
+    world_circle_pts = config.WORLD_CIRCLES_PTS # from real world
     # 圖像座標點
     image_pts = [
         (0, 0),
@@ -128,6 +121,8 @@ if __name__ == "__main__":
         (0, 220)
     ]
     image_square_pts = config.SQUARE_POINTS # from transformed image
+    image_circle_pts = config.CALIB_CIRCLES_PTS # from transformed image
+    
     
     # 透射變換
     # H = np.load(config.PERSPECTIVE_MATRIX_PATH).astype(np.float32)
@@ -135,23 +130,27 @@ if __name__ == "__main__":
     H_homo = calculate_homography(image_pts, world_ref_pts)
     
     # 計算各個位置的中心點
-    center_point = calculate_center_point(image_pts)
-    top_center = calculate_edge_center(image_pts, 'top')
-    bottom_center = calculate_edge_center(image_pts, 'bottom')
-    left_center = calculate_edge_center(image_pts, 'left')
-    right_center = calculate_edge_center(image_pts, 'right')
+    # center_point = calculate_center_point(image_pts)
+    # top_center = calculate_edge_center(image_pts, 'top')
+    # bottom_center = calculate_edge_center(image_pts, 'bottom')
+    # left_center = calculate_edge_center(image_pts, 'left')
+    # right_center = calculate_edge_center(image_pts, 'right')
     
     # 測試所有中心點
     test_points = {
-        "上邊中心": (top_center, world_center_pts[0]),
-        "下邊中心": (bottom_center, world_center_pts[1]),
-        "左邊中心": (left_center, world_center_pts[2]),
-        "右邊中心": (right_center, world_center_pts[3]),
-        "中心點": (center_point, world_center_pts[4]),
+        # "上邊中心": (top_center, world_center_pts[0]),
+        # "下邊中心": (bottom_center, world_center_pts[1]),
+        # "左邊中心": (left_center, world_center_pts[2]),
+        # "右邊中心": (right_center, world_center_pts[3]),
+        # "中心點": (center_point, world_center_pts[4]),
         "正方形1": (image_square_pts[0], world_square_pts[0]),
         "正方形2": (image_square_pts[1], world_square_pts[1]),
         "正方形3": (image_square_pts[2], world_square_pts[2]),
         "正方形4": (image_square_pts[3], world_square_pts[3]),
+        "圓形1": (image_circle_pts[0], world_circle_pts[0]),
+        "圓形2": (image_circle_pts[1], world_circle_pts[1]),
+        "圓形3": (image_circle_pts[2], world_circle_pts[2]),
+        "圓形4": (image_circle_pts[3], world_circle_pts[3]),
     }
     
     # 對每個測試點進行轉換和誤差計算

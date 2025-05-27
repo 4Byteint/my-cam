@@ -39,10 +39,10 @@ print('\n2. 畸變係數 (dist):')
 print(dist)
 
 # 保存校準結果
-np.save('./calibration/camera_matrix_mm.npy', mtx)
-np.save('./calibration/dist_coeff_mm.npy', dist)
-np.save('./calibration/rvecs_mm.npy', rvecs)
-np.save('./calibration/tvecs_mm.npy', tvecs)
+np.save('./calibration/camera_matrix.npy', mtx)
+np.save('./calibration/dist_coeff.npy', dist)
+np.save('./calibration/rvecs.npy', rvecs)
+np.save('./calibration/tvecs.npy', tvecs)
 
 # undistort
 img = cv.imread('./calibration/final/img12_calib.png')

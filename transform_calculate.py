@@ -64,15 +64,15 @@ def detect_points_2(image):
         print("未檢測到任何線條")
         return None
     
-    # 過濾靠近底邊的線條
+    # 過濾靠近上邊的線條
     height, width = image.shape[:2]
-    bottom_threshold = int(height * 0.8)
+    top_threshold = int(height * 0.2)  # 設定上邊閾值為圖片高度的 20%
     filtered_lines = []
     
     # 使用整數座標
     for line in lines:
         x1, y1, x2, y2 = map(int, line[0])
-        if y1 < bottom_threshold and y2 < bottom_threshold:
+        if y1 > top_threshold and y2 > top_threshold:  # 只保留在上邊閾值以下的線條
             filtered_lines.append([x1, y1, x2, y2])
     
     if len(filtered_lines) < 4:
@@ -104,14 +104,13 @@ def detect_points_2(image):
 
     # 收集所有有效交點
     intersections = []
-    bottom_threshold = int(height * 0.8)  # 使用與線條過濾相同的底邊閾值
     for i in range(len(filtered_lines)):
         for j in range(i + 1, len(filtered_lines)):
             pt = compute_line_intersection(filtered_lines[i], filtered_lines[j])
             if pt is not None:
                 px, py = pt
-                # 過濾掉太靠近底邊的交點
-                if 0 <= px < width and 0 <= py < bottom_threshold:
+                # 過濾掉太靠近上邊的交點
+                if 0 <= px < width and py > top_threshold:
                     intersections.append((px, py))
     
     if len(intersections) < 4:
@@ -254,11 +253,11 @@ def detect_points_2(image):
         x, y = map(int, pt)
         cv2.circle(filtered_points_image, (x, y), 4, (0, 255, 0), -1)
     
-    # 繪製底邊閾值線
-    cv2.line(filtered_points_image, (0, bottom_threshold), 
-             (width, bottom_threshold), (0, 0, 255), 2)
-    cv2.putText(filtered_points_image, "Bottom Threshold", 
-                (10, bottom_threshold - 10),
+    # 繪製上邊閾值線
+    cv2.line(filtered_points_image, (0, top_threshold), 
+             (width, top_threshold), (0, 0, 255), 2)
+    cv2.putText(filtered_points_image, "Top Threshold", 
+                (10, top_threshold + 20),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
     
     cv2.imshow("Filtered Intersection Points", filtered_points_image)
@@ -535,7 +534,7 @@ def is_square(side_lengths, tolerance=5):
 
 ######################################
 # 计算透视变换参数矩阵
-img_path= './calibration/demo/img6.png'
+img_path= './calibration/demo/flipped/img6.png'
 
 # 定義透視變換的四個點
 

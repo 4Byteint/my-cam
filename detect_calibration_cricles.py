@@ -48,39 +48,31 @@ def detect_circles(warped_diff_img, warped_color_img):
     :param warped_color_img: 經過透視變換的彩色原圖
     :return: 圓心座標列表和處理後的圖片
     """
-    # cv2.imshow("enhanced_img", enhanced_img)
     gray_blurred = cv2.GaussianBlur(warped_diff_img, (5,5), 2)
     cv2.imshow("gray_blurred", gray_blurred)
     cv2.waitKey(0)  
     cv2.destroyAllWindows()
-    # 使用霍夫圓變換來偵測圓形壓痕
-    # miniDist: 
-    # param1: canny thershold
-    # param2: hough 累積的 thershold 越小檢測到的圓越多
-    circles = cv2.HoughCircles(gray_blurred, 
+
+    # 使用 Canny 邊緣檢測
+    canny = cv2.Canny(gray_blurred, 20, 30)
+    cv2.imshow("canny", canny)
+    cv2.waitKey(0)  
+    cv2.destroyAllWindows()
+
+    
+    # 使用篩選後的邊緣進行霍夫圓變換
+    circles = cv2.HoughCircles(canny, 
                                cv2.HOUGH_GRADIENT, 
                                dp=1.2, 
                                minDist=100,
                                param1=10, 
                                param2=30, 
-                               minRadius=5, 
+                               minRadius=15, 
                                maxRadius=30)
    
     # 使用彩色原圖作為輸出圖片
     output_img = warped_color_img.copy()
     circle_centers = []
-    
-    # # 圓形檢測
-    # circles = cv2.HoughCircles(
-    #     img_clahe, 
-    #     cv2.HOUGH_GRADIENT, 
-    #     dp=2,
-    #     minDist=50,
-    #     param1=20,
-    #     param2=55,
-    #     minRadius=5,
-    #     maxRadius=25
-    # )
     
     if circles is not None:
         # 將結果轉換為浮點數，保持精確度
@@ -99,6 +91,7 @@ def detect_circles(warped_diff_img, warped_color_img):
                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
             
             print(f"圓心 #{idx} 座標: ({x:.2f}, {y:.2f})")
+
     
     return circle_centers, output_img
 
@@ -110,17 +103,17 @@ if __name__ == "__main__":
         print(f"已創建目錄：{output_folder}")
     
     # 基準圖片
-    base_img = cv2.imread("./calibration/demo/img11.png")
+    base_img = cv2.imread("./calibration/demo/flipped/img11.png")
     if base_img is None:
         print("無法讀取基準圖片")
         exit()
     
     # 要處理的樣本圖片列表
     sample_images = [
-        "./calibration/demo/img7.png",
-        "./calibration/demo/img8.png",
-        "./calibration/demo/img9.png",
-        "./calibration/demo/img10.png"
+        "./calibration/demo/flipped/img7.png",
+        "./calibration/demo/flipped/img8.png",
+        "./calibration/demo/flipped/img9.png",
+        "./calibration/demo/flipped/img10.png"
     ]
     
     # 儲存所有檢測到的圓心座標
@@ -161,39 +154,28 @@ if __name__ == "__main__":
         cv2.imshow(f"Detected Circles - {os.path.basename(sample_path)}", result_img)
         cv2.waitKey(0)  # 顯示1秒
         cv2.destroyAllWindows()
-    
-    # 更新 config.py 中的 CALIB_CIRCLES_XY
-    if all_circle_centers:
+        
+    # 更新 config.py 中的 CALIB_CIRCLES_PTS
+    if all_circle_centers is not None:
         with open('config.py', 'r', encoding='utf-8') as file:
             lines = file.readlines()
-        
-        # 將座標轉換為 [(x1,y1), (x2,y2), ...] 的形式，並四捨五入到三位小數
-        circles_list = []
-        for x, y in all_circle_centers:
-            # 將 np.float32 轉換為 Python float
-            x_float = float(round(x, 3))
-            y_float = float(round(y, 3))
-            circles_list.append([x_float, y_float])
-        
-        # 檢查是否已存在 CALIB_CIRCLES_XY
-        calib_circles_exists = False
+        # 檢查是否已存在 CALIB_CIRCLES_PTS
         for i, line in enumerate(lines):
-            if line.startswith('CALIB_CIRCLES_XY ='):
-                lines[i] = f'CALIB_CIRCLES_XY = {circles_list} # 校準圓形中心點座標 [(x1,y1), (x2,y2), ...]\n'
-                calib_circles_exists = True
+            if line.startswith('CALIB_CIRCLES_PTS ='):
+                # 使用格式化字符串確保三位小數
+                circles_list = [[round(float(x), 3), round(float(y), 3)] for x, y in all_circle_centers]
+                lines[i] = f'CALIB_CIRCLES_PTS = {circles_list} '
                 break
-        
-        # 如果不存在，則在文件末尾添加
-        if not calib_circles_exists:
-            lines.append(f'\nCALIB_CIRCLES_XY = {circles_list} # 校準圓形中心點座標 [(x1,y1), (x2,y2), ...]\n')
-        
+    
         # 寫回文件
         with open('config.py', 'w', encoding='utf-8') as file:
             file.writelines(lines)
         
-        print("\n已更新 config.py 中的 CALIB_CIRCLES_XY")
+        print("\n已更新 config.py 中的 CALIB_CIRCLES_PTS")
         print(f"總共檢測到 {len(all_circle_centers)} 個圓形中心點")
-        print(f"座標列表: {circles_list}")
+        print("座標列表（三位小數）:")
+        for i, (x, y) in enumerate(circles_list):
+            print(f"圓心 #{i}: [{x:.3f}, {y:.3f}]")
     else:
         print("\n未檢測到任何圓形")
 
