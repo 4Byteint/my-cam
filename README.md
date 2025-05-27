@@ -1,28 +1,40 @@
-# Using WSL in Cursor (or VS Code)
 
-1. Press `Ctrl + Shift + P` to open the Command Palette.
-2. Search and select **Terminal: Select Default Profile**.
-3. Choose **WSL** (e.g., `Ubuntu`) as the default terminal profile.
-4. Open a new terminal — it will launch into **Linux Bash** via WSL.
-5. Activate the virtual environment:
-```
-source .venv/bin/activate
-```
+# Project Folder Structure
+1. images/:
+Contains input chessboard images (JPEG/PNG) used for calibration.
+
+2. calibration/:
+Stores calibration result files:
+
+    camera_matrix.npy: Intrinsic matrix
+
+    dist_coeffs.npy: Distortion coefficients
+
+    rvecs.npy, tvecs.npy: Rotation and translation vectors
+
+3. model/:
+train/
+inference/
+
+4. model_train/:
+put the results of trained model 
+
+5. else/:
+stores some trivials code
+
 # Camera Calibration
-run
-```
-python calibration.py
-```
 1. Use a **chessboard pattern**, e.g., 9×6 inner corners.
-2. RMS reprojection error: 0.05 pixels (it's good!)
-then you will get 2 .npy files in ./calibration/
-
-# Perspective Correction(transform)
-I use Homography to transfer 4 points into a knowed ratio size of rectangle
+2. RMS reprojection error: 0.04 pixels (it's good!) then you will get some .npy files in ./calibration/
 run
 ```
-python transform_findxy.py
+python camera_calibration.py
 ```
-then, it prints 4 points of rectrangle at the frame(counterwise)
+# Perspective Correction(transform)
+
+run
+```
+python 
+```
+
 
 # 
