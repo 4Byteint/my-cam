@@ -11,7 +11,6 @@ project/
     ├── rvecs.npy
     ├── tvecs.npy
     ├── homography.npy                  # 儲存好的 Homography 參數
-└── 
 
 # Project Folder Structure
 1. images/:
