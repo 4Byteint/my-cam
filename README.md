@@ -1,16 +1,21 @@
+# auto_project
+project/
+├── main.py                        # 主控流程
+├── tflite_segmentation.py        # SegmentationModel 類別
+├── perspective_utils.py          # 做透視變換（Homography）
+├── utils.py                      # mask 上色、找座標、畫框等工具
+├── model.tflite                  # 模型檔
+└── calibration/
+    ├── camera_matrix.npy          
+    ├── dist_coeffs.npy
+    ├── rvecs.npy
+    ├── tvecs.npy
+    ├── homography.npy                  # 儲存好的 Homography 參數
+└── 
 
 # Project Folder Structure
 1. images/:
 Contains input chessboard images (JPEG/PNG) used for calibration.
-
-2. calibration/:
-Stores calibration result files:
-
-    camera_matrix.npy: Intrinsic matrix
-
-    dist_coeffs.npy: Distortion coefficients
-
-    rvecs.npy, tvecs.npy: Rotation and translation vectors
 
 3. model/:
 train/
