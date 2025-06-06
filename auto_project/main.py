@@ -6,6 +6,8 @@ import time, board, threading, neopixel
 
 from utils import draw_fps
 from camera_module import Camera
+from tflite_segmentation import TFLiteModel
+import config
 
 LED_PIN = board.D18
 LED_COUNT = 20
@@ -57,33 +59,55 @@ def set_leds_task(stop_event):
     pixels.show()
     
         
-# ==============================================================
+def show_prediction_result(original_frame, mask):
+    """分別在兩個視窗中顯示原始圖片和推論結果，保持原始大小"""
+    # 將遮罩轉換為彩色圖像以便顯示
+    mask_colored = cv2.cvtColor(mask * 255, cv2.COLOR_GRAY2BGR)
+    
+    # 分別顯示在兩個視窗中，保持原始大小
+    cv2.imshow("Original Image", original_frame)
+    cv2.imshow("Prediction Mask", mask_colored)
+
 def main():
     stop_event = threading.Event()
     led_thread = threading.Thread(target=set_leds_task, args=(stop_event,), daemon=False)
     led_thread.start()
-    # model 
-    #model = SegmentationModel(config.TFLITE_PATH)
+    
+    # 初始化模型
+    model = TFLiteModel(config.TFLITE_MODEL_PATH)
+    
     # picamera
     cam = Camera(use_undistort=True)
     try:
         while True:
-            base_count = 0
-            base_path = "./imprint/250601"
+        
             frame = cam.read()
             if frame is None:
                 continue
+                
+            # 進行推論
+            mask = model.predict(frame)
+            
+            # 顯示原始圖片和推論結果
+            show_prediction_result(frame, mask)
+            
+            # 顯示即時攝影機畫面（包含 FPS）
             fps = cam.get_fps()
             dst = draw_fps(frame, fps)
-            cv2.imshow("showimage_pi", dst)
+            cv2.imshow("Camera View", dst)
             
             key = cv2.waitKey(1)
             if key == 27:
                 break
             elif key == ord('b'):
+                base_path = "./imprint/250601"
+                base_count = 0
                 img_name = os.path.join(base_path, f"img{base_count}.png")
-                cv2.imwrite(img_name, dst) 
+                mask_name = os.path.join(base_path, f"img{base_count}_mask.png")
+                cv2.imwrite(img_name, frame)
+                cv2.imwrite(mask_name, mask * 255)
                 base_count += 1
+                print(f"已儲存圖片和推論結果：{img_name}, {mask_name}")
     finally:
         stop_event.set()
         led_thread.join()
