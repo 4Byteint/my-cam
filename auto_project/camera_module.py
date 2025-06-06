@@ -8,7 +8,9 @@ import cv2
 class Camera:
 	def __init__(self, use_undistort=False):
 		self.picam2 = Picamera2()
-		self.config = self.picam2.create_preview_configuration(main={"size":config.RESOLUTION})
+		self.config = self.picam2.create_preview_configuration(
+			main={"size": config.RESOLUTION, "format": "BGR888"}
+		)
 		self.picam2.configure(self.config)
 		self.picam2.set_controls({
             "AfMode": config.AF_MODE,
@@ -45,6 +47,8 @@ class Camera:
 	def _update_frame(self):
 		while self.running:
 			frame = self.picam2.capture_array()
+			if frame.shape[-1] == 3:  # 如果是 RGB 格式
+				frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 			if self.use_undistort:
 				frame = cv2.remap(frame, self.map1, self.map2, interpolation=cv2.INTER_LINEAR)
 			with self.lock:
