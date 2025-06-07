@@ -2,17 +2,16 @@ import os
 import cv2
 import numpy as np
 from tflite_runtime.interpreter import Interpreter
-from onnx2tflite import onnx_converter
+# from onnx2tflite import onnx_converter
 from utils import apply_perspective_transform
 import config
 
 # 模型轉換相關設定
-ONNX_PATH = "./model_train/2025-04-20_00-53-10/unet-epoch234-lr0.0001.onnx"
-OUTPUT_PATH = "./model_train/tflite_model"
+
+OUTPUT_PATH = "../model_train/tflite_model"
 
 
-def onnx_to_tflite():
-    """將 ONNX 模型轉換為 TFLite 格式"""
+"""def onnx_to_tflite():
     os.makedirs(OUTPUT_PATH, exist_ok=True)
     res = onnx_converter(
         onnx_model_path=ONNX_PATH,
@@ -22,7 +21,7 @@ def onnx_to_tflite():
     )
     print("轉換結果：", res)
     print("onnx 轉換為 tflite 完成")
-
+"""
 class TFLiteModel:
     """TFLite 模型推論類別"""
     def __init__(self, model_path):
@@ -40,7 +39,7 @@ class TFLiteModel:
         
     def preprocess(self, image):
         raw_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        image = apply_perspective_transform(raw_image, config.PERSPECTIVE_SIZE)
+        image = apply_perspective_transform(raw_image, config.PERSPECTIVE_MATRIX_PATH, config.PERSPECTIVE_SIZE)
         
         # 正規化
         input_data = image.astype(np.float32) / 255.0
@@ -107,7 +106,7 @@ def main():
     model = TFLiteModel(config.TFLITE_MODEL_PATH)
     
     # 讀取測試圖片
-    test_image_path = "./imprint/dataset.label/final_dataset_voc/PngImages/img67.png"
+    test_image_path = "../imprint/dataset.label/final_dataset_voc/PngImages/img67.png"
     image = cv2.imread(test_image_path)
     if image is None:
         raise FileNotFoundError(f"無法讀取圖片：{test_image_path}")
@@ -116,7 +115,7 @@ def main():
     mask = model.predict(image)
     
     # 儲存結果
-    save_path = "./tflite_transfer/tflite_predict/tflite_predict_img67.png"
+    save_path = "../tflite_transfer/tflite_predict/tflite_predict_img67.png"
     model.save_prediction(mask, save_path)
     print(f"預測結果已儲存至：{save_path}")
 

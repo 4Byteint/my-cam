@@ -61,19 +61,25 @@ def set_leds_task(stop_event):
         
 def show_prediction_result(cam, model, stop_event):
     while not stop_event.is_set():
-        frame = cam.read()
-        if frame is None:
-            continue
+        try:
+            frame = cam.read()
+            if frame is None:
+                continue
+            mask = model.predict(frame)
+            mask_display = cv2.cvtColor(mask * 255, cv2.COLOR_GRAY2BGR)
+            cv2.imshow("mask", mask_display)
+            
+            if cv2.waitKey(1) == 27:
+                stop_event.set()
+                break
         
-        mask = model.predict(frame)
-        mask_display = cv2.cvtColor(mask * 255, cv2.COLOR_GRAY2BGR)
-        cv2.imshow("mask", mask_display)
+        except Exception as e:
+            print("infer thread is error.")
         
-        if cv2.waitKey(1) == 27:
-            stop_event.set()
-            break
         
 def main():
+    cam = Camera(use_undistort=True)
+    
     stop_event = threading.Event()
     led_thread = threading.Thread(target=set_leds_task, args=(stop_event,), daemon=False)
     led_thread.start()
@@ -81,11 +87,9 @@ def main():
     # 初始化模型
     model = TFLiteModel(config.TFLITE_MODEL_PATH)
     
-    # picamera
-    cam = Camera(use_undistort=True)
     infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event), daemon=True)
     infer_thread.start()
-    
+    base_count = 0
     try:
         while True:
             frame = cam.read()
@@ -102,7 +106,6 @@ def main():
                 break
             elif key == ord('b'):
                 base_path = "./imprint/250601"
-                base_count = 0
                 img_name = os.path.join(base_path, f"img{base_count}.png")
                 cv2.imwrite(img_name, frame)
                 base_count += 1

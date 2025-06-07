@@ -15,12 +15,12 @@ DIST_COEFF_PATH = "calibration/dist_coeff.npy"
 # 模型相關
 MODEL_PATH = "model.pth"
 DEVICE = "cuda"
-TFLITE_MODEL_PATH = "./model_train/tflite_model/unet-epoch234-lr0.tflite"  # TFLite 模型路徑
+TFLITE_MODEL_PATH = "../model_train/tflite_model/unet-epoch234-lr0.tflite"  # TFLite 模型路徑
 
 # 影像轉換設定
 POINTS = [(120, 0), (506, 0), (458, 366), (197, 369)] # 框偵測的四個點 
 PERSPECTIVE_MATRIX_PATH = "calibration/perspective_matrix_128x160.npy"
-PERSPECTIVE_SIZE = (128, 160) # (height, width)
+PERSPECTIVE_SIZE = (128, 160) # (w, h)
 
 # 模型輸入大小
 MODEL_INPUT_SIZE = (160, 128) # (height, width)

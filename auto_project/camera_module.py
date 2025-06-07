@@ -8,7 +8,7 @@ import cv2
 class Camera:
 	def __init__(self, use_undistort=False):
 		self.picam2 = Picamera2()
-		self.config = self.picam2.create_preview_configuration(main={"size": config.RESOLUTION})
+		self.config = self.picam2.create_preview_configuration(main={"size": config.RESOLUTION, "format": "RGB888"})
 		self.picam2.configure(self.config)
 		self.picam2.set_controls({
             "AfMode": config.AF_MODE,
@@ -70,5 +70,6 @@ class Camera:
 			
 	def close(self):
 		self.running = False
+		self.picam2.stop()
 		self.picam2.close()
 		
