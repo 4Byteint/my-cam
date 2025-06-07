@@ -59,15 +59,20 @@ def set_leds_task(stop_event):
     pixels.show()
     
         
-def show_prediction_result(original_frame, mask):
-    """分別在兩個視窗中顯示原始圖片和推論結果，保持原始大小"""
-    # 將遮罩轉換為彩色圖像以便顯示
-    mask_colored = cv2.cvtColor(mask * 255, cv2.COLOR_GRAY2BGR)
-    
-    # 分別顯示在兩個視窗中，保持原始大小
-    cv2.imshow("Original Image", original_frame)
-    cv2.imshow("Prediction Mask", mask_colored)
-
+def show_prediction_result(cam, model, stop_event):
+    while not stop_event.is_set():
+        frame = cam.read()
+        if frame is None:
+            continue
+        
+        mask = model.predict(frame)
+        mask_display = cv2.cvtColor(mask * 255, cv2.COLOR_GRAY2BGR)
+        cv2.imshow("mask", mask_display)
+        
+        if cv2.waitKey(1) == 27:
+            stop_event.set()
+            break
+        
 def main():
     stop_event = threading.Event()
     led_thread = threading.Thread(target=set_leds_task, args=(stop_event,), daemon=False)
@@ -78,19 +83,15 @@ def main():
     
     # picamera
     cam = Camera(use_undistort=True)
+    infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event), daemon=True)
+    infer_thread.start()
+    
     try:
         while True:
-        
             frame = cam.read()
             if frame is None:
                 continue
-                
-            # 進行推論
-            mask = model.predict(frame)
-            
-            # 顯示原始圖片和推論結果
-            show_prediction_result(frame, mask)
-            
+
             # 顯示即時攝影機畫面（包含 FPS）
             fps = cam.get_fps()
             dst = draw_fps(frame, fps)
@@ -103,13 +104,12 @@ def main():
                 base_path = "./imprint/250601"
                 base_count = 0
                 img_name = os.path.join(base_path, f"img{base_count}.png")
-                mask_name = os.path.join(base_path, f"img{base_count}_mask.png")
                 cv2.imwrite(img_name, frame)
-                cv2.imwrite(mask_name, mask * 255)
                 base_count += 1
-                print(f"已儲存圖片和推論結果：{img_name}, {mask_name}")
+                print(f"已儲存圖片結果：{img_name}")
     finally:
         stop_event.set()
+        infer_thread.join()
         led_thread.join()
         cv2.destroyAllWindows()
         cam.close()
