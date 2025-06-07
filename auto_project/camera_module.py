@@ -48,7 +48,8 @@ class Camera:
 			frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 			if self.use_undistort:
 				frame = cv2.remap(frame, self.map1, self.map2, interpolation=cv2.INTER_LINEAR)
-			with self.lock:
+			print("take a frame success")
+   			with self.lock:
 				self.lastest_frame = frame
 				self._update_fps()
 				
@@ -66,7 +67,11 @@ class Camera:
 		
 	def read(self):
 		with self.lock:
-			return self.lastest_frame.copy() if self.lastest_frame is not None else None	
+			if self.lastest_frame is None:
+				print("⚠️ 尚未取得畫面")
+				return None
+			return self.lastest_frame.copy()
+
 			
 	def close(self):
 		self.running = False

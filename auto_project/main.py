@@ -100,6 +100,7 @@ def main():
             fps = cam.get_fps()
             dst = draw_fps(frame, fps)
             cv2.imshow("Camera View", dst)
+            print(f"🧵 現在執行緒數量：{threading.active_count()}")
             
             key = cv2.waitKey(1)
             if key == 27:
