@@ -6,7 +6,7 @@ from tflite_runtime.interpreter import Interpreter
 from utils import apply_perspective_transform
 import config
 
-# 模型轉換相關設定
+
 
 OUTPUT_PATH = "../model_train/tflite_model"
 
@@ -37,8 +37,8 @@ class TFLiteModel:
         self.output_details = self.interpreter.get_output_details()
         self.input_shape = self.input_details[0]['shape'][1:3]  # (height, width)
         
-    def preprocess(self, image):
-        raw_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    def preprocess(self, raw_image):
+        raw_image = cv2.cvtColor(raw_image, cv2.COLOR_BGR2RGB) ### 這裡要改成RGB輸入
         image = apply_perspective_transform(raw_image, config.PERSPECTIVE_MATRIX_PATH, config.PERSPECTIVE_SIZE)
         
         # 正規化
@@ -106,7 +106,7 @@ def main():
     model = TFLiteModel(config.TFLITE_MODEL_PATH)
     
     # 讀取測試圖片
-    test_image_path = "../imprint/dataset.label/final_dataset_voc/PngImages/img67.png"
+    test_image_path = "../imprint/dataset.label_v1/final_dataset_voc/PngImages/img14.png"
     image = cv2.imread(test_image_path)
     if image is None:
         raise FileNotFoundError(f"無法讀取圖片：{test_image_path}")
@@ -115,7 +115,7 @@ def main():
     mask = model.predict(image)
     
     # 儲存結果
-    save_path = "../tflite_transfer/tflite_predict/tflite_predict_img67.png"
+    save_path = "../tflite_transfer/tflite_predict/tflite_predict_img14.png"
     model.save_prediction(mask, save_path)
     print(f"預測結果已儲存至：{save_path}")
 

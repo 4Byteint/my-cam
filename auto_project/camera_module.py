@@ -8,7 +8,7 @@ import cv2
 class Camera:
 	def __init__(self, use_undistort=False):
 		self.picam2 = Picamera2()
-		self.config = self.picam2.create_preview_configuration(main={"size": config.RESOLUTION, "format": "RGB888"})
+		self.config = self.picam2.create_preview_configuration(main={"size": config.RESOLUTION})
 		self.picam2.configure(self.config)
 		self.picam2.set_controls({
             "AfMode": config.AF_MODE,
@@ -20,8 +20,7 @@ class Camera:
 		self.picam2.start()
 		time.sleep(1)
 		
-		self.lastest_frame = None
-		self.running = True
+		self.latest_frame = None
 		self.lock = threading.Lock()
 		
 		self.mtx = np.load(config.CAMERA_MATRIX_PATH)
@@ -39,19 +38,25 @@ class Camera:
 		self.frame_count = 0
 		self.fps = 0.0
 		
+	def start(self):
+		self.running = True
 		self.thread = threading.Thread(target=self._update_frame, daemon=True)
 		self.thread.start()
-		
+	def _grab_frame(self):
+		raw_frame = self.picam2.capture_array()
+		frame = cv2.cvtColor(raw_frame, cv2.COLOR_RGB2BGR)
+		if self.use_undistort:
+			frame = cv2.remap(frame, self.map1, self.map2, interpolation=cv2.INTER_LINEAR)
+		return frame
+
 	def _update_frame(self):
 		while self.running:
-			frame = self.picam2.capture_array()
-			frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-			if self.use_undistort:
-				frame = cv2.remap(frame, self.map1, self.map2, interpolation=cv2.INTER_LINEAR)
-			print("take a frame success")
-   			with self.lock:
-				self.lastest_frame = frame
-				self._update_fps()
+			frame = self._grab_frame()
+			if frame is None:
+				continue
+			with self.lock:
+				self.latest_frame = frame
+			self._update_fps()
 				
 	def _update_fps(self):
 		self.frame_count += 1
@@ -65,16 +70,20 @@ class Camera:
 	def get_fps(self):
 		return self.fps
 		
-	def read(self):
-		with self.lock:
-			if self.lastest_frame is None:
-				print("⚠️ 尚未取得畫面")
-				return None
-			return self.lastest_frame.copy()
 
-			
+	def get_latest_frame(self):
+		""" 供多執行緒安全讀取最新一張影像 """
+		with self.lock:
+			if self.latest_frame is None:
+				return None
+			return self.latest_frame.copy()
+
+	def read(self):
+		""" 讀取最新影像(不經由快取) """
+		return self._grab_frame()
 	def close(self):
 		self.running = False
+		if hasattr(self, 'thread'):
+			self.thread.join()
 		self.picam2.stop()
 		self.picam2.close()
-		
