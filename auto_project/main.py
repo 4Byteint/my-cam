@@ -4,10 +4,12 @@ import cv2
 import os
 import time, board, threading, neopixel
 
-from utils import draw_fps
+from utils import draw_fps, apply_perspective_transform
 from camera_module import Camera
 from tflite_segmentation import TFLiteModel
 import config
+
+
 # lock
 shared_mask = None
 mask_lock = threading.Lock()
@@ -24,7 +26,7 @@ pixels = neopixel.NeoPixel(
 
 COLOR_BLUE = (0, 0, 255)
 COLOR_GREEN = (0, 55, 0)
-COLOR_RED = (159, 0, 0)
+COLOR_RED = (120, 0, 0)
 COLOR_OFF = (0, 0, 0)
 
 COUNT_BLUE = 4
@@ -38,7 +40,6 @@ def set_leds_task():
         exit(1)
 
     pixels.fill(COLOR_OFF)
-    
     for i in range(0, COUNT_BLUE):
         pixels[i] = COLOR_BLUE
     
@@ -91,11 +92,11 @@ def main():
             if frame is None:
                 continue
 
-            # 顯示即時攝影機畫面（包含 FPS）
-            fps = cam.get_fps()
-            frame_with_fps = draw_fps(frame, fps)
-            cv2.imshow("Camera View", frame_with_fps)
-            # cv2.imshow("Camera View", frame)
+            # # 顯示即時攝影機畫面（包含 FPS）
+            # fps = cam.get_fps()
+            # frame_with_fps = draw_fps(frame, fps)
+            # cv2.imshow("Camera View", frame_with_fps)
+            cv2.imshow("Camera View", frame)
             with mask_lock:
                 if shared_mask is not None:
                     cv2.imshow("Mask", shared_mask)           
@@ -103,12 +104,13 @@ def main():
             key = cv2.waitKey(1)
             if key == 27:
                 break
-            # elif key == ord('b'):
-            #     base_path = "./imprint/250601"
-            #     img_name = os.path.join(base_path, f"img{base_count}.png")
-            #     cv2.imwrite(img_name, frame)
-            #     base_count += 1
-            #     print(f"已儲存圖片結果：{img_name}")
+            elif key == ord('b'):
+                base_path = "./imprint"
+                img_name = os.path.join(base_path, f"img{base_count}.png")
+                frame = apply_perspective_transform(frame)
+                cv2.imwrite(img_name, frame)
+                base_count += 1
+                print(f"已儲存圖片結果：{img_name}")
     finally:
         stop_event.set()
         infer_thread.join()

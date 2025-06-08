@@ -39,7 +39,7 @@ class TFLiteModel:
         
     def preprocess(self, raw_image):
         raw_image = cv2.cvtColor(raw_image, cv2.COLOR_BGR2RGB) ### 這裡要改成RGB輸入
-        image = apply_perspective_transform(raw_image, config.PERSPECTIVE_MATRIX_PATH, config.PERSPECTIVE_SIZE)
+        image = apply_perspective_transform(raw_image)
         
         # 正規化
         input_data = image.astype(np.float32) / 255.0
