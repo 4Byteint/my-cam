@@ -14,11 +14,11 @@ DIST_COEFF_PATH = "calibration/dist_coeff.npy"
 
 # 模型相關與轉換
 MODEL_INPUT_SIZE = (220, 180) # (height, width)
-PTH_MODEL_PATH = "./model_train/2025-06-09_00-58-48/unet-epoch284-lr0.0001.pth"
+PTH_MODEL_PATH = "./model_train/2025-06-09_15-12-02/unet-epoch300-lr0.0001.pth"
 DEVICE = "cuda"
-ONNX_MODEL_PATH = "./model_train/2025-06-09_00-58-48/unet-epoch284-lr0.0001.onnx"
-TFLITE_MODEL_PATH = "./model_train/2025-06-09_00-58-48/"  # TFLite 模型路徑
-TFLITE_MODEL_NAME = "./model_train/2025-06-09_00-58-48/unet-epoch284-lr0.tflite"
+ONNX_MODEL_PATH = "./model_train/2025-06-09_15-12-02/unet-epoch300-lr0.0001.onnx"
+TFLITE_MODEL_PATH = "./model_train/2025-06-09_15-12-02/"  # TFLite 模型路徑
+TFLITE_MODEL_NAME = "./model_train/2025-06-09_15-12-02/unet-epoch300-lr0.tflite"
 
 # 影像轉換設定
 POINTS = [(120, 0), (506, 0), (458, 366), (197, 369)] # 框偵測的四個點 
