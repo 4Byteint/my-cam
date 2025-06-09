@@ -12,10 +12,13 @@ EXPOSURE_VALUE = -0.5
 CAMERA_MATRIX_PATH = "calibration/camera_matrix.npy"
 DIST_COEFF_PATH = "calibration/dist_coeff.npy"
 
-# 模型相關
-MODEL_PATH = "model.pth"
+# 模型相關與轉換
+MODEL_INPUT_SIZE = (220, 180) # (height, width)
+PTH_MODEL_PATH = "./model_train/2025-06-09_00-58-48/unet-epoch284-lr0.0001.pth"
 DEVICE = "cuda"
-TFLITE_MODEL_PATH = "../model_train/tflite_model/unet-epoch234-lr0.tflite"  # TFLite 模型路徑
+ONNX_MODEL_PATH = "./model_train/2025-06-09_00-58-48/unet-epoch284-lr0.0001.onnx"
+TFLITE_MODEL_PATH = "./model_train/2025-06-09_00-58-48/"  # TFLite 模型路徑
+TFLITE_MODEL_NAME = "unet-epoch284-lr0.0001"
 
 # 影像轉換設定
 POINTS = [(120, 0), (506, 0), (458, 366), (197, 369)] # 框偵測的四個點 
@@ -23,7 +26,6 @@ PERSPECTIVE_MATRIX_PATH = "calibration/perspective_matrix_180x220.npy"
 PERSPECTIVE_SIZE = (180, 220) # (w, h)
 
 # 模型輸入大小
-MODEL_INPUT_SIZE = (220, 180) # (height, width)
 
 # 分割後的角度分析
 MIN_REGION_AREA = 50
