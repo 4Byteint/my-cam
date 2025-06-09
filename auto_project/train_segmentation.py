@@ -198,7 +198,7 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("🚀 使用設備：", device)
 
-    image_dir = "./dataset/v1/data_dataset_voc/PNGImages"
+    image_dir = "./dataset/v1/data_dataset_voc/PngImages"
     mask_dir = "./dataset/v1/data_dataset_voc/SegmentationClass"
 
     dataset = SegmentationDataset(image_dir, mask_dir)
