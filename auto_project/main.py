@@ -62,7 +62,7 @@ def show_prediction_result(cam, model, stop_event):
             if frame is None:
                 continue
             mask = model.predict(frame)
-            mask_display = cv2.cvtColor(mask * 255, cv2.COLOR_GRAY2BGR)
+            mask_display = cv2.cvtColor(mask * 255)
             with mask_lock:
                 shared_mask = mask_display      
         except Exception as e:
@@ -81,7 +81,7 @@ def main():
     stop_event = threading.Event()
 
     # 初始化模型
-    model = TFLiteModel(config.TFLITE_MODEL_PATH)
+    model = TFLiteModel(config.TFLITE_MODEL_NAME)
     
     infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event), daemon=True)
     infer_thread.start()

@@ -6,22 +6,6 @@ from tflite_runtime.interpreter import Interpreter
 from utils import apply_perspective_transform
 import config
 
-
-
-OUTPUT_PATH = "../model_train/tflite_model"
-
-
-"""def onnx_to_tflite():
-    os.makedirs(OUTPUT_PATH, exist_ok=True)
-    res = onnx_converter(
-        onnx_model_path=ONNX_PATH,
-        need_simplify=True,
-        output_path=OUTPUT_PATH,
-        target_formats=["tflite"],
-    )
-    print("轉換結果：", res)
-    print("onnx 轉換為 tflite 完成")
-"""
 class TFLiteModel:
     """TFLite 模型推論類別"""
     def __init__(self, model_path):
@@ -83,22 +67,6 @@ class TFLiteModel:
         """
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
         cv2.imwrite(save_path, mask * 255)
-
-def check_precision(onnx_path):
-    """檢查 ONNX 模型的精度設定"""
-    import onnxruntime as ort
-
-    sess = ort.InferenceSession(ONNX_PATH)
-
-    # 檢查第一個輸入
-    inp = sess.get_inputs()[0]
-    print("Input name:", inp.name)
-    print("Input type:", inp.type)      # e.g. 'tensor(float)' or 'tensor(float16)'
-
-    # 檢查第一個輸出
-    out = sess.get_outputs()[0]
-    print("Output name:", out.name)
-    print("Output type:", out.type)
 
 def main():
     """主程式：示範如何使用 TFLiteModel"""

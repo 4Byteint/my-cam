@@ -18,12 +18,13 @@ PTH_MODEL_PATH = "./model_train/2025-06-09_00-58-48/unet-epoch284-lr0.0001.pth"
 DEVICE = "cuda"
 ONNX_MODEL_PATH = "./model_train/2025-06-09_00-58-48/unet-epoch284-lr0.0001.onnx"
 TFLITE_MODEL_PATH = "./model_train/2025-06-09_00-58-48/"  # TFLite 模型路徑
-TFLITE_MODEL_NAME = "unet-epoch284-lr0.0001"
+TFLITE_MODEL_NAME = "./model_train/2025-06-09_00-58-48/unet-epoch284-lr0.tflite"
 
 # 影像轉換設定
 POINTS = [(120, 0), (506, 0), (458, 366), (197, 369)] # 框偵測的四個點 
 PERSPECTIVE_MATRIX_PATH = "calibration/perspective_matrix_180x220.npy"
 PERSPECTIVE_SIZE = (180, 220) # (w, h)
+
 
 # 模型輸入大小
 
