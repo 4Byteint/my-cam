@@ -109,7 +109,7 @@ def main():
             if key == 27:
                 break
             elif key == ord('b'):
-                base_path = "./imprint"
+                base_path = "./dataset/v2"
                 img_name = os.path.join(base_path, f"img{base_count}.png")
                 frame = apply_perspective_transform(frame)
                 cv2.imwrite(img_name, frame)

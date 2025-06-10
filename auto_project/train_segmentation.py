@@ -62,7 +62,7 @@ class SegmentationDataset(Dataset):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
         self.image_list = sorted(os.listdir(image_dir))
-        self.transform = transform if transform else T.ToTensor()
+        self.transform = T.ToTensor()
         
     def __len__(self):
         return len(self.image_list)

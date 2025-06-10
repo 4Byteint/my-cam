@@ -1,73 +1,56 @@
-import numpy as np
-from picamera2 import Picamera2, Preview
-import cv2
 import os
-import time
+import cv2
+import numpy as np
+import shutil
 
-# 初始化相機
-picam2 = Picamera2()
+# 設定資料夾路徑
+input_folder = './auto_project/dataset/v1/original_img'      # 原始圖片資料夾
+base_image_path = './auto_project/dataset/v1/original_img/base.png'       # base圖片路徑
+output_folder = './auto_project/dataset/v1/diff_img'    # 輸出資料夾
 
-config = picam2.create_video_configuration(main={"size":(640,480), "format": "YUV420"})  # 使用 YUV420 格式
-# 如果要用 AI 推論可以用 lores
+# 建立輸出資料夾（如果不存在）
+os.makedirs(output_folder, exist_ok=True)
+# 清空輸出資料夾內容
+for f in os.listdir(output_folder):
+    file_path = os.path.join(output_folder, f)
+    if os.path.isfile(file_path) or os.path.islink(file_path):
+        os.unlink(file_path)
+    elif os.path.isdir(file_path):
+        shutil.rmtree(file_path)
+# 讀取base圖片
+base_img = cv2.imread(base_image_path, cv2.IMREAD_COLOR)
+if base_img is None:
+    raise FileNotFoundError(f"找不到 base 圖片：{base_image_path}")
 
-picam2.configure(config)
-picam2.set_controls({
-    "AfMode": 0,
-    "LensPosition": 1.0,
-    "AwbEnable": False,
-    "ColourGains": (1.7, 0.8),
-    "ExposureValue": -0.5
-})
-picam2.start()
+# 取得所有圖片檔案（排除base圖片）
+image_files = [f for f in os.listdir(input_folder)
+               if f.lower().endswith(('.png', '.jpg', '.jpeg')) and f != os.path.basename(base_image_path)]
 
-def showRealtimeImage(frame_name):
-    base_count = 0
-    base_path = "./calibration/perspective"
-    mtx = np.load('./calibration/camera_matrix.npy')
-    dist = np.load('./calibration/dist_coeff.npy')
-    
-    # 初始化 FPS 計算變數
-    start_time = time.time()
-    frame_count = 0
-    fps = 0
-    
-    while True:
-        frame = picam2.capture_array("main") 
-        frame = cv2.cvtColor(frame, cv2.COLOR_YUV2BGR_I420)  # YUV 轉 BGR 才能顯示
-        h, w = frame.shape[:2]
-        #request = picam2.capture_request()  # 這樣影像會經過 Raspberry Pi 內建校正
-        #frame = request.make_array("main")  # 轉換為 NumPy 陣列
-        #request.release()  # 釋放請
-        # 求，避免佔用相機資源
-        # 修正色彩空間（RGB -> BGR）
-        # frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        flipped_frame = cv2.flip(frame,0)
-        newcameramtx, _ = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 0.9, (w, h))
-        dst = cv2.undistort(flipped_frame, mtx, dist, None, newcameramtx)
-        
-        frame_count += 1
-        elapsed = time.time() - start_time
-        if elapsed >= 1:
-            fps = frame_count 
-            print(f"FPS: {fps}")
-            frame_count = 0
-            start_time = time.time()
-        
-        # 在畫面上顯示 FPS
-        cv2.putText(dst, f"FPS: {int(fps)}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        cv2.imshow(frame_name, dst)
-        
-        key = cv2.waitKey(1)
-        if key == ord('q'):
-            break
-        elif key == ord('b'):
-            img_name = os.path.join(base_path, f"img{base_count}_transform.png")
-            cv2.imwrite(img_name, flipped_frame)
-            base_count += 1
-    cv2.destroyAllWindows()
-    picam2.stop()
+# 處理每一張圖片
+for filename in sorted(image_files):
+    img_path = os.path.join(input_folder, filename)
+    img = cv2.imread(img_path, cv2.IMREAD_COLOR)
+    if img is None:
+        print(f"無法讀取圖片：{filename}")
+        continue
 
-# ==============================================================
-# main
-showRealtimeImage("Picamera2 image")
+    # 確保圖片尺寸一致
+    if img.shape != base_img.shape:
+        print(f"圖片尺寸不符：{filename}")
+        continue
 
+    # 影像相減
+    diff = cv2.absdiff(img, base_img)
+
+    # 儲存結果，檔名與原圖一致
+    output_path = os.path.join(output_folder, filename)
+    cv2.imwrite(output_path, diff)
+    print(f"已儲存：{output_path}")
+
+# 複製 input_folder 內所有 json 檔案到 output_folder
+for file in os.listdir(input_folder):
+    if file.lower().endswith('.json'):
+        src = os.path.join(input_folder, file)
+        dst = os.path.join(output_folder, file)
+        shutil.copy2(src, dst)
+        print(f"已複製 JSON：{dst}")
