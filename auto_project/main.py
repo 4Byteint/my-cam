@@ -8,7 +8,7 @@ from utils import draw_fps, apply_perspective_transform
 from camera_module import Camera
 from tflite_segmentation import TFLiteModel
 import config
-
+from inference_segmentation import UNetSegmenter
 
 # lock
 shared_mask = None
@@ -61,8 +61,11 @@ def show_prediction_result(cam, model, stop_event):
             frame = cam.get_latest_frame()
             if frame is None:
                 continue
-            mask = model.predict(frame)
-            mask_display = cv2.cvtColor(mask * 255)
+            frame = apply_perspective_transform(frame)
+            # mask = model.predict(frame)
+            all_color, wire_mask, connector_mask = model.predict(frame, return_color=True, save=False)
+            # mask_display = cv2.cvtColor(mask * 255)
+            mask_display = cv2.cvtColor(all_color, cv2.COLOR_RGB2BGR)
             with mask_lock:
                 shared_mask = mask_display      
         except Exception as e:
@@ -81,7 +84,8 @@ def main():
     stop_event = threading.Event()
 
     # 初始化模型
-    model = TFLiteModel(config.TFLITE_MODEL_NAME)
+    # model = TFLiteModel(config.TFLITE_MODEL_NAME)
+    model = UNetSegmenter(config.PTH_MODEL_PATH)
     
     infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event), daemon=True)
     infer_thread.start()

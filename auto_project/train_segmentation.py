@@ -62,26 +62,18 @@ class SegmentationDataset(Dataset):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
         self.image_list = sorted(os.listdir(image_dir))
-        self.transform = transform
-        self.mask_resize = T.Resize(config.MODEL_INPUT_SIZE, interpolation=Image.NEAREST)
-
+        self.transform = transform if transform else T.ToTensor()
+        
     def __len__(self):
         return len(self.image_list)
 
     def __getitem__(self, idx):
         image_path = os.path.join(self.image_dir, self.image_list[idx])
         mask_path = os.path.join(self.mask_dir, self.image_list[idx])
-
         image = Image.open(image_path).convert('RGB')
         mask = Image.open(mask_path)
-
-        if self.transform:
-            image = self.transform(image)
-        else:
-            image = T.ToTensor()(T.Resize(config.MODEL_INPUT_SIZE)(image))
-
-        mask = torch.as_tensor(np.array(self.mask_resize(mask)), dtype=torch.long)
-
+        image = self.transform(image)
+        mask = torch.as_tensor(np.array(mask), dtype=torch.long)
         return image, mask
 
 # ============ 計算準確率 ============
@@ -200,8 +192,9 @@ if __name__ == '__main__':
 
     image_dir = "./dataset/v1/data_dataset_voc/PngImages"
     mask_dir = "./dataset/v1/data_dataset_voc/SegmentationClass"
+    transform = T.ToTensor()
 
-    dataset = SegmentationDataset(image_dir, mask_dir)
+    dataset = SegmentationDataset(image_dir, mask_dir, transform=transform)
     train_len = int(0.8 * len(dataset))
     val_len = len(dataset) - train_len
     train_set, val_set = random_split(dataset, [train_len, val_len])
