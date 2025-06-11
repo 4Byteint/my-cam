@@ -13,7 +13,7 @@ from inference_segmentation import UNetSegmenter
 # lock
 shared_mask = None
 mask_lock = threading.Lock()
-
+# led setup
 LED_PIN = board.D18
 LED_COUNT = 20
 LED_BRIGHTNESS = 10
@@ -33,6 +33,9 @@ COUNT_BLUE = 4
 COUNT_GREEN = 6
 COUNT_OFF = 4
 COUNT_RED = 6
+# base image
+base_path = "./dataset/v1/original_img/base.png"
+base_img = cv2.imread(base_path)
 
 def set_leds_task():
     if (COUNT_BLUE + COUNT_GREEN + COUNT_OFF + COUNT_RED) != LED_COUNT:
@@ -62,8 +65,9 @@ def show_prediction_result(cam, model, stop_event):
             if frame is None:
                 continue
             frame = apply_perspective_transform(frame)
+            diff_img = cv2.absdiff(frame, base_img)
             # mask = model.predict(frame)
-            all_color, wire_mask, connector_mask = model.predict(frame, return_color=True, save=False)
+            all_color, wire_mask, connector_mask = model.predict(diff_img, return_color=True, save=False)
             # mask_display = cv2.cvtColor(mask * 255)
             mask_display = cv2.cvtColor(all_color, cv2.COLOR_RGB2BGR)
             with mask_lock:

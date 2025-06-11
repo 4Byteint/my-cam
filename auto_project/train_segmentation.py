@@ -8,11 +8,14 @@ from PIL import Image
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader, random_split
+from torch.utils.data import Dataset, DataLoader, Subset, random_split
 import torchvision.transforms as T
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import config
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
+
 
 # ============ 輕量化 U-Net 模型（3 類別輸出） ============
 class UNet(nn.Module):
@@ -58,23 +61,43 @@ class UNet(nn.Module):
 
 # ============ 自訂 Dataset ============
 class SegmentationDataset(Dataset):
-    def __init__(self, image_dir, mask_dir, transform=None):
+    def __init__(self, image_dir, mask_dir, train=True, use_augmentation=True):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
         self.image_list = sorted(os.listdir(image_dir))
-        self.transform = T.ToTensor()
-        
+        self.transform = self.get_transforms(train, use_augmentation)
+    
+    def get_transforms(self, train, use_aug):
+        if train and use_aug:
+            return A.Compose([
+                A.Rotate(limit=10, p=1.0),  # 隨機旋轉 ±10°
+                A.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, p=1.0),
+                A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)),
+                ToTensorV2()
+            ])
+        else:
+            return A.Compose([
+                A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)),
+                ToTensorV2()
+            ])
+
+    
     def __len__(self):
         return len(self.image_list)
 
     def __getitem__(self, idx):
         image_path = os.path.join(self.image_dir, self.image_list[idx])
         mask_path = os.path.join(self.mask_dir, self.image_list[idx])
-        image = Image.open(image_path).convert('RGB')
-        mask = Image.open(mask_path)
-        image = self.transform(image)
-        mask = torch.as_tensor(np.array(mask), dtype=torch.long)
-        return image, mask
+        
+        image = np.array(Image.open(image_path).convert('RGB'))
+        mask = np.array(Image.open(mask_path))
+        
+        # 若 mask 為 RGB 或 paletted，需轉成灰階類別圖
+        if mask.ndim == 3:
+            mask = mask[:, :, 0]
+
+        augmented = self.transform(image=image, mask=mask)
+        return augmented['image'], augmented['mask'].long()
 
 # ============ 計算準確率 ============
 def calculate_accuracy(pred, target):
@@ -84,6 +107,12 @@ def calculate_accuracy(pred, target):
     return (correct / total).item()
 
 # ============ 儲存預測結果圖像 ============
+def denormalize(tensor, mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)):
+    """還原 Normalize 後的張量回原始顏色區間"""
+    tensor = tensor.clone()
+    for t, m, s in zip(tensor, mean, std):
+        t.mul_(s).add_(m)
+    return tensor.clamp(0, 1)
 def save_prediction_image(image, mask, pred, save_path):
     image_np = image.permute(1, 2, 0).cpu().numpy()
     mask_np = mask.cpu().numpy()
@@ -179,9 +208,10 @@ def train_model(model, dataloaders, criterion, optimizer, num_epochs=20, lr=1e-3
     sample_img, sample_mask = dataloaders['val'].dataset[0]
     with torch.no_grad():
         pred = model(sample_img.unsqueeze(0).to(device))
-
+        
+    denorm_img = denormalize(sample_img.cpu())
     predict_path = f"{save_dir}/unet-epoch{num_epochs}-lr{lr}_predict.png"
-    save_prediction_image(sample_img, sample_mask, pred.cpu(), predict_path)
+    save_prediction_image(denorm_img, sample_mask, pred.cpu(), predict_path)
     print(f"✅ 已儲存範例預測圖：{predict_path}")
 
 
@@ -192,13 +222,20 @@ if __name__ == '__main__':
 
     image_dir = "./dataset/v1/data_dataset_voc/PngImages"
     mask_dir = "./dataset/v1/data_dataset_voc/SegmentationClass"
-    transform = T.ToTensor()
 
-    dataset = SegmentationDataset(image_dir, mask_dir, transform=transform)
-    train_len = int(0.8 * len(dataset))
-    val_len = len(dataset) - train_len
-    train_set, val_set = random_split(dataset, [train_len, val_len])
+    # 使用固定隨機種子切割資料集
+    all_indices = list(range(len(os.listdir(image_dir))))
+    train_len = int(0.8 * len(all_indices))
+    val_len = len(all_indices) - train_len
+    generator = torch.Generator().manual_seed(42)
+    train_indices, val_indices = random_split(all_indices, [train_len, val_len], generator=generator)
 
+    train_dataset = SegmentationDataset(image_dir, mask_dir, train=True, use_augmentation=True)
+    val_dataset = SegmentationDataset(image_dir, mask_dir, train=False, use_augmentation=False)
+    
+    train_set = Subset(train_dataset, train_indices)
+    val_set = Subset(val_dataset, val_indices)
+    
     dataloaders = {
         'train': DataLoader(train_set, batch_size=4, shuffle=True),
         'val': DataLoader(val_set, batch_size=4)
@@ -209,4 +246,4 @@ if __name__ == '__main__':
     lr = 0.0001
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
-    train_model(model, dataloaders, criterion, optimizer, num_epochs=300, lr=lr)
+    train_model(model, dataloaders, criterion, optimizer, num_epochs=600, lr=lr)
