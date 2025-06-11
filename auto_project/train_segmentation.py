@@ -66,7 +66,7 @@ class SegmentationDataset(Dataset):
         self.mask_dir = mask_dir
         self.image_list = sorted(os.listdir(image_dir))
        
-        self.transform_image, self.transform_mask = self.get_transforms(train, use_augmentatio)
+        self.transform_image, self.transform_mask = self.get_transforms(train, use_augmentation)
     def get_transforms(self, train, use_aug):
         if train and use_aug:
             transform_image = T.Compose([
@@ -231,15 +231,17 @@ def train_model(model, dataloaders, criterion, optimizer, num_epochs=20, lr=1e-3
     predict_path = f"{save_dir}/unet-epoch{num_epochs}-lr{lr}_predict.png"
     save_prediction_image(denorm_img, sample_mask, pred.cpu(), predict_path)
     print(f"✅ 已儲存範例預測圖：{predict_path}")
-
+    # 印出訓練總時長
+    total_seconds = (datetime.now() - datetime.strptime(timestamp, "%Y-%m-%d_%H-%M-%S")).total_seconds()
+    print(f"⏱️ 訓練總時長：{total_seconds:.2f} 秒")
 
 # ============ 主程式入口 ============
 if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("🚀 使用設備：", device)
 
-    image_dir = "./dataset/v1/data_dataset_voc/PngImages"
-    mask_dir = "./dataset/v1/data_dataset_voc/SegmentationClass"
+    image_dir = "./dataset/v1/diff_dataset_voc/PngImages"
+    mask_dir = "./dataset/v1/diff_dataset_voc/SegmentationClass"
 
     # 使用固定隨機種子切割資料集
     all_indices = list(range(len(os.listdir(image_dir))))
@@ -261,7 +263,7 @@ if __name__ == '__main__':
 
     model = UNet(in_channels=3, out_channels=3).to(device)
     criterion = nn.CrossEntropyLoss()
-    lr = 0.0001
+    lr = 0.001
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
-    train_model(model, dataloaders, criterion, optimizer, num_epochs=600, lr=lr)
+    train_model(model, dataloaders, criterion, optimizer, num_epochs=50, lr=lr)
