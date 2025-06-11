@@ -73,7 +73,7 @@ class SegmentationDataset(Dataset):
                 T.RandomRotation(degrees=10),
                 T.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3),
                 T.ToTensor(),
-                T.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
+                T.Normalize(mean=(0, 0, 0), std=(1.0, 1.0, 1.0))
             ])
             transform_mask = T.Compose([
                 T.RandomRotation(degrees=10),  # 必須與 image 相同變換，需手動同步（下面會處理）
@@ -82,7 +82,6 @@ class SegmentationDataset(Dataset):
         else:
             transform_image = T.Compose([
                 T.ToTensor(),
-                T.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
             ])
             transform_mask = T.Compose([
                 T.ToTensor()
@@ -227,9 +226,9 @@ def train_model(model, dataloaders, criterion, optimizer, num_epochs=20, lr=1e-3
     with torch.no_grad():
         pred = model(sample_img.unsqueeze(0).to(device))
         
-    denorm_img = denormalize(sample_img.cpu())
+    # denorm_img = denormalize(sample_img.cpu())
     predict_path = f"{save_dir}/unet-epoch{num_epochs}-lr{lr}_predict.png"
-    save_prediction_image(denorm_img, sample_mask, pred.cpu(), predict_path)
+    save_prediction_image(sample_img, sample_mask, pred.cpu(), predict_path)
     print(f"✅ 已儲存範例預測圖：{predict_path}")
     # 印出訓練總時長
     total_seconds = (datetime.now() - datetime.strptime(timestamp, "%Y-%m-%d_%H-%M-%S")).total_seconds()
@@ -240,8 +239,8 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("🚀 使用設備：", device)
 
-    image_dir = "./dataset/v1/diff_dataset_voc/PngImages"
-    mask_dir = "./dataset/v1/diff_dataset_voc/SegmentationClass"
+    image_dir = "./dataset/v1/data_dataset_voc/PngImages"
+    mask_dir = "./dataset/v1/data_dataset_voc/SegmentationClass"
 
     # 使用固定隨機種子切割資料集
     all_indices = list(range(len(os.listdir(image_dir))))
@@ -250,7 +249,7 @@ if __name__ == '__main__':
     generator = torch.Generator().manual_seed(42)
     train_indices, val_indices = random_split(all_indices, [train_len, val_len], generator=generator)
 
-    train_dataset = SegmentationDataset(image_dir, mask_dir, train=True, use_augmentation=True)
+    train_dataset = SegmentationDataset(image_dir, mask_dir, train=True, use_augmentation=False)
     val_dataset = SegmentationDataset(image_dir, mask_dir, train=False, use_augmentation=False)
     
     train_set = Subset(train_dataset, train_indices)

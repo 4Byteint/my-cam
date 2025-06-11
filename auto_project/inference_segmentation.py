@@ -19,7 +19,7 @@ class UNetSegmenter:
         self.model.load_state_dict(torch.load(model_path, map_location=self.device))
         self.transform = T.Compose([
             T.ToTensor(),
-            T.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
+            T.Normalize(mean=(0, 0, 0), std=(1.0, 1.0, 1.0))
         ])
         self.model.eval()
 
