@@ -61,12 +61,12 @@ class UNet(nn.Module):
 
 # ============ 自訂 Dataset ============
 class SegmentationDataset(Dataset):
-    def __init__(self, image_dir, mask_dir, train=True, use_augmentation=True):
+    def __init__(self, image_dir, mask_dir,transform=None, train=True, use_augmentation=True):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
         self.image_list = sorted(os.listdir(image_dir))
-       
-        self.transform_image, self.transform_mask = self.get_transforms(train, use_augmentation)
+        self.transform = T.ToTensor()
+        # self.transform_image, self.transform_mask = self.get_transforms(train, use_augmentation)
     def get_transforms(self, train, use_aug):
         if train and use_aug:
             transform_image = T.Compose([
@@ -100,22 +100,26 @@ class SegmentationDataset(Dataset):
         image = Image.open(image_path).convert('RGB')
         mask = Image.open(mask_path)
 
-        # 若 mask 為 RGB 或 paletted，需轉成灰階類別圖
-        if mask.mode != 'L':
-            mask = mask.convert('L')
+        # # 若 mask 為 RGB 或 paletted，需轉成灰階類別圖
+        # if mask.mode != 'L':
+        #     mask = mask.convert('L')
 
-        # 為了讓旋轉對齊，使用相同 seed 處理 image 和 mask
-        seed = random.randint(0, 2**32)
-        random.seed(seed)
-        image = self.transform_image(image)
+        # # 為了讓旋轉對齊，使用相同 seed 處理 image 和 mask
+        # seed = random.randint(0, 2**32)
+        # random.seed(seed)
+        # image = self.transform_image(image)
 
-        random.seed(seed)
-        mask = self.transform_mask(mask)
+        # random.seed(seed)
+        # mask = self.transform_mask(mask)
 
-        # mask 為 [1, H, W]，要 squeeze 掉 channel
-        return image, mask.squeeze(0).long()
+        # # mask 為 [1, H, W]，要 squeeze 掉 channel
+        # return image, mask.squeeze(0).long()
         
+        image = self.transform(image)
 
+        mask = torch.as_tensor(np.array(mask), dtype=torch.long)
+
+        return image, mask
 # ============ 計算準確率 ============
 def calculate_accuracy(pred, target):
     pred = torch.argmax(pred, dim=1)
@@ -243,17 +247,23 @@ if __name__ == '__main__':
     mask_dir = "./dataset/v1/data_dataset_voc/SegmentationClass"
 
     # 使用固定隨機種子切割資料集
-    all_indices = list(range(len(os.listdir(image_dir))))
-    train_len = int(0.8 * len(all_indices))
-    val_len = len(all_indices) - train_len
-    generator = torch.Generator().manual_seed(42)
-    train_indices, val_indices = random_split(all_indices, [train_len, val_len], generator=generator)
+    # all_indices = list(range(len(os.listdir(image_dir))))
+    # train_len = int(0.8 * len(all_indices))
+    # val_len = len(all_indices) - train_len
+    # generator = torch.Generator().manual_seed(42)
+    # train_indices, val_indices = random_split(all_indices, [train_len, val_len], generator=generator)
 
-    train_dataset = SegmentationDataset(image_dir, mask_dir, train=True, use_augmentation=False)
-    val_dataset = SegmentationDataset(image_dir, mask_dir, train=False, use_augmentation=False)
+    # train_dataset = SegmentationDataset(image_dir, mask_dir, train=True, use_augmentation=False)
+    # val_dataset = SegmentationDataset(image_dir, mask_dir, train=False, use_augmentation=False)
     
-    train_set = Subset(train_dataset, train_indices)
-    val_set = Subset(val_dataset, val_indices)
+    # train_set = Subset(train_dataset, train_indices)
+    # val_set = Subset(val_dataset, val_indices)
+    
+    # 使用一般資料集
+    dataset = SegmentationDataset(image_dir, mask_dir)
+    train_len = int(0.8 * len(dataset))
+    val_len = len(dataset) - train_len
+    train_set, val_set = random_split(dataset, [train_len, val_len])
     
     dataloaders = {
         'train': DataLoader(train_set, batch_size=4, shuffle=True),

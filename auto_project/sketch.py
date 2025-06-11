@@ -5,7 +5,7 @@ from utils import process_folder
 
 base_path = "./dataset/v2/img1.png"
 sample_dir = "./dataset/v2"
-output_dir = "./dataset/v2/diff_img"
+output_dir = "./dataset/v2"
 
 def process_folder(base_img_path, sample_dir, output_dir):
     """
@@ -35,4 +35,14 @@ def process_folder(base_img_path, sample_dir, output_dir):
         diff_img = cv2.subtract(sample_img, base_img)
         cv2.imwrite(output_path, diff_img)
 
-process_folder(base_path, sample_dir, output_dir)
+# process_folder(base_path, sample_dir, output_dir)
+
+# Rename all .png files in sample_dir to start from 81.png, 82.png, ...
+def rename_images_sequentially(folder, start_num=81):
+    png_files = sorted([f for f in os.listdir(folder) if f.lower().endswith('.png')])
+    for idx, filename in enumerate(png_files, start=start_num):
+        src = os.path.join(folder, filename)
+        dst = os.path.join(folder, f"img{idx}.png")
+        os.rename(src, dst)
+
+rename_images_sequentially(output_dir, start_num=81)

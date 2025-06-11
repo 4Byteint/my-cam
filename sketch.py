@@ -10,13 +10,7 @@ output_folder = './auto_project/dataset/v1/diff_img'    # 輸出資料夾
 
 # 建立輸出資料夾（如果不存在）
 os.makedirs(output_folder, exist_ok=True)
-# 清空輸出資料夾內容
-for f in os.listdir(output_folder):
-    file_path = os.path.join(output_folder, f)
-    if os.path.isfile(file_path) or os.path.islink(file_path):
-        os.unlink(file_path)
-    elif os.path.isdir(file_path):
-        shutil.rmtree(file_path)
+
 # 讀取base圖片
 base_img = cv2.imread(base_image_path, cv2.IMREAD_COLOR)
 if base_img is None:
