@@ -89,11 +89,11 @@ def main():
 
     # 初始化模型
     # model = TFLiteModel(config.TFLITE_MODEL_NAME)
-    model = UNetSegmenter(config.PTH_MODEL_PATH)
+    # model = UNetSegmenter(config.PTH_MODEL_PATH)
     
-    infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event), daemon=True)
-    infer_thread.start()
-    base_count = 0
+    # infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event), daemon=True)
+    # infer_thread.start()
+    base_count = 101
     try:
         while True:
             frame = cam.get_latest_frame()
@@ -113,7 +113,7 @@ def main():
             if key == 27:
                 break
             elif key == ord('b'):
-                base_path = "./dataset/v2"
+                base_path = "./dataset/v1/original_img"
                 img_name = os.path.join(base_path, f"img{base_count}.png")
                 frame = apply_perspective_transform(frame)
                 cv2.imwrite(img_name, frame)
@@ -121,7 +121,7 @@ def main():
                 print(f"已儲存圖片結果：{img_name}")
     finally:
         stop_event.set()
-        infer_thread.join()
+        # infer_thread.join()
         cv2.destroyAllWindows()
         cam.close()
         print("main process ends totally.")
