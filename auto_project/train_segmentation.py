@@ -243,8 +243,8 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("🚀 使用設備：", device)
 
-    image_dir = "./dataset/v1/data_dataset_voc/PngImages"
-    mask_dir = "./dataset/v1/data_dataset_voc/SegmentationClass"
+    image_dir = "./dataset/v1/data2_dataset_voc/PngImages"
+    mask_dir = "./dataset/v1/data2_dataset_voc/SegmentationClass"
 
     # 使用固定隨機種子切割資料集
     # all_indices = list(range(len(os.listdir(image_dir))))
@@ -272,7 +272,7 @@ if __name__ == '__main__':
 
     model = UNet(in_channels=3, out_channels=3).to(device)
     criterion = nn.CrossEntropyLoss()
-    lr = 0.001
+    lr = 0.0001
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
-    train_model(model, dataloaders, criterion, optimizer, num_epochs=50, lr=lr)
+    train_model(model, dataloaders, criterion, optimizer, num_epochs=300, lr=lr)
