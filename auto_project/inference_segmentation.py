@@ -10,9 +10,6 @@ import matplotlib.pyplot as plt
 from train_segmentation import UNet
 from tqdm import tqdm
 import time
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
-
 
 class UNetSegmenter:
     def __init__(self, model_path):
@@ -20,9 +17,9 @@ class UNetSegmenter:
         print(f"使用设备: {self.device}")
         self.model = UNet(in_channels=3, out_channels=3).to(self.device)
         self.model.load_state_dict(torch.load(model_path, map_location=self.device))
-        self.transform = A.Compose([
-            A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)),
-            ToTensorV2()
+        self.transform = T.Compose([
+            T.ToTensor(),
+            T.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
         ])
         self.model.eval()
 
@@ -42,10 +39,8 @@ class UNetSegmenter:
         
         try:
             base_name = time.strftime("%Y%m%d_%H%M%S")
-            
-            augmented = self.transform(image=frame)
-            image_tensor =  augmented['image'].unsqueeze(0).to(self.device) # 加上 batch 維度
-            
+            image = Image.fromarray(frame)
+            image_tensor = self.transform(image).unsqueeze(0).to(self.device) # ?
             start_time = time.time()
             # 推論
             with torch.no_grad():

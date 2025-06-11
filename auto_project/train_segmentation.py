@@ -13,9 +13,9 @@ import torchvision.transforms as T
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import config
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
-
+# import albumentations as A
+# from albumentations.pytorch import ToTensorV2
+import random
 
 # ============ 輕量化 U-Net 模型（3 類別輸出） ============
 class UNet(nn.Module):
@@ -65,22 +65,31 @@ class SegmentationDataset(Dataset):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
         self.image_list = sorted(os.listdir(image_dir))
-        self.transform = self.get_transforms(train, use_augmentation)
-    
+       
+        self.transform_image, self.transform_mask = self.get_transforms(train, use_augmentatio)
     def get_transforms(self, train, use_aug):
         if train and use_aug:
-            return A.Compose([
-                A.Rotate(limit=10, p=1.0),  # 隨機旋轉 ±10°
-                A.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, p=1.0),
-                A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)),
-                ToTensorV2()
+            transform_image = T.Compose([
+                T.RandomRotation(degrees=10),
+                T.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3),
+                T.ToTensor(),
+                T.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
+            ])
+            transform_mask = T.Compose([
+                T.RandomRotation(degrees=10),  # 必須與 image 相同變換，需手動同步（下面會處理）
+                T.ToTensor()
             ])
         else:
-            return A.Compose([
-                A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)),
-                ToTensorV2()
+            transform_image = T.Compose([
+                T.ToTensor(),
+                T.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
+            ])
+            transform_mask = T.Compose([
+                T.ToTensor()
             ])
 
+        return transform_image, transform_mask
+    
     
     def __len__(self):
         return len(self.image_list)
@@ -89,15 +98,24 @@ class SegmentationDataset(Dataset):
         image_path = os.path.join(self.image_dir, self.image_list[idx])
         mask_path = os.path.join(self.mask_dir, self.image_list[idx])
         
-        image = np.array(Image.open(image_path).convert('RGB'))
-        mask = np.array(Image.open(mask_path))
-        
-        # 若 mask 為 RGB 或 paletted，需轉成灰階類別圖
-        if mask.ndim == 3:
-            mask = mask[:, :, 0]
+        image = Image.open(image_path).convert('RGB')
+        mask = Image.open(mask_path)
 
-        augmented = self.transform(image=image, mask=mask)
-        return augmented['image'], augmented['mask'].long()
+        # 若 mask 為 RGB 或 paletted，需轉成灰階類別圖
+        if mask.mode != 'L':
+            mask = mask.convert('L')
+
+        # 為了讓旋轉對齊，使用相同 seed 處理 image 和 mask
+        seed = random.randint(0, 2**32)
+        random.seed(seed)
+        image = self.transform_image(image)
+
+        random.seed(seed)
+        mask = self.transform_mask(mask)
+
+        # mask 為 [1, H, W]，要 squeeze 掉 channel
+        return image, mask.squeeze(0).long()
+        
 
 # ============ 計算準確率 ============
 def calculate_accuracy(pred, target):
