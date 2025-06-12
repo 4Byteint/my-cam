@@ -65,11 +65,13 @@ def show_prediction_result(cam, model, stop_event):
             if frame is None:
                 continue
             frame = apply_perspective_transform(frame)
-            diff_img = cv2.absdiff(frame, base_img)
+            # ---- diff infer
+            # diff_img = cv2.absdiff(frame, base_img)
+            # mask_display = cv2.cvtColor(all_color, cv2.COLOR_RGB2BGR)
+            # ---- tflite infer
             # mask = model.predict(frame)
-            all_color, wire_mask, connector_mask = model.predict(diff_img, return_color=True, save=False)
-            # mask_display = cv2.cvtColor(mask * 255)
-            mask_display = cv2.cvtColor(all_color, cv2.COLOR_RGB2BGR)
+            all_color, wire_mask, connector_mask = model.predict(frame, return_color=True, save=False)
+            mask_display = all_color
             with mask_lock:
                 shared_mask = mask_display      
         except Exception as e:
@@ -89,11 +91,11 @@ def main():
 
     # 初始化模型
     # model = TFLiteModel(config.TFLITE_MODEL_NAME)
-    # model = UNetSegmenter(config.PTH_MODEL_PATH)
+    model = UNetSegmenter(config.PTH_MODEL_PATH)
     
-    # infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event), daemon=True)
-    # infer_thread.start()
-    base_count = 101
+    infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event), daemon=True)
+    infer_thread.start()
+    base_count = 145
     try:
         while True:
             frame = cam.get_latest_frame()
@@ -121,7 +123,7 @@ def main():
                 print(f"已儲存圖片結果：{img_name}")
     finally:
         stop_event.set()
-        # infer_thread.join()
+        infer_thread.join()
         cv2.destroyAllWindows()
         cam.close()
         print("main process ends totally.")

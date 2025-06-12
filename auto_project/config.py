@@ -14,7 +14,7 @@ DIST_COEFF_PATH = "calibration/dist_coeff.npy"
 
 # 模型相關與轉換
 MODEL_INPUT_SIZE = (220, 180) # (height, width)
-PTH_MODEL_PATH = "./model_train/2025-06-11_11-12-27/unet-epoch573-lr0.0001.pth"
+PTH_MODEL_PATH = "./model_train/2025-06-11_23-37-28/unet-epoch252-lr0.0001.pth"
 DEVICE = "cuda"
 ONNX_MODEL_PATH = "./model_train/2025-06-09_15-12-02/unet-epoch300-lr0.0001.onnx"
 TFLITE_MODEL_PATH = "./model_train/2025-06-09_15-12-02/"  # TFLite 模型路徑
