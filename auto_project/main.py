@@ -71,9 +71,9 @@ def show_prediction_result(cam, model, stop_event):
             # ---- tflite infer
             # mask = model.predict(frame)
             all_color, wire_mask, connector_mask = model.predict(frame, return_color=True, save=False)
-            mask_display = all_color
+            mask_display = all_color # RGB
             with mask_lock:
-                shared_mask = mask_display      
+                shared_mask = mask_display 
         except Exception as e:
             print(f"infer thread is error. {e}")
         
@@ -109,7 +109,8 @@ def main():
             cv2.imshow("Camera View", frame)
             with mask_lock:
                 if shared_mask is not None:
-                    cv2.imshow("Mask", shared_mask)           
+                    predict_mask = cv2.cvtColor(shared_mask, cv2.COLOR_RGB2BGR)  # 轉換為 BGR 格式以便顯示
+                    cv2.imshow("Mask", predict_mask)           
             
             key = cv2.waitKey(1)
             if key == 27:

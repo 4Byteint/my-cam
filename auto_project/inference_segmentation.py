@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from train_segmentation import UNet
 from tqdm import tqdm
 import time
-
+import cv2
 class UNetSegmenter:
     def __init__(self, model_path):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -19,13 +19,13 @@ class UNetSegmenter:
         self.model.load_state_dict(torch.load(model_path, map_location=self.device))
         self.transform = T.Compose([
             T.ToTensor(),
-            T.Normalize(mean=(0, 0, 0), std=(1.0, 1.0, 1.0))
+            # T.Normalize(mean=(0, 0, 0), std=(1.0, 1.0, 1.0))
         ])
         self.model.eval()
 
     def predict(self, frame, return_color=False, output_dir="./predict/v1", save=False):
         """
-        frame: 相機拍攝的 RGB NumPy 圖片
+        frame: 相機拍攝的 BGR 
         item: 'all'、'wire'、'connector'
         save: 是否儲存分割結果圖
         return_color: 是否輸出彩色標註圖
@@ -34,12 +34,9 @@ class UNetSegmenter:
         """
         if save:
             self._create_dir(output_dir)
-        
-        
-        
         try:
             base_name = time.strftime("%Y%m%d_%H%M%S")
-            image = Image.fromarray(frame)
+            image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             image_tensor = self.transform(image).unsqueeze(0).to(self.device) # ?
             start_time = time.time()
             # 推論
@@ -66,7 +63,7 @@ class UNetSegmenter:
                 Image.fromarray(wire_mask).save(os.path.join(output_dir, f"{base_name}_color_wire.png"))
                 Image.fromarray(connector_mask).save(os.path.join(output_dir, f"{base_name}_color_connector.png"))
             
-            return all_color, wire_mask, connector_mask
+            return all_color, wire_mask, connector_mask # RGB
             
         
         except Exception as e:
