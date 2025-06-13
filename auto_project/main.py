@@ -11,7 +11,6 @@ import config
 from inference_segmentation import UNetSegmenter
 from pose_estimation import PoseEstimation
 
-
 # lock
 shared_mask = None
 mask_lock = threading.Lock()
@@ -35,9 +34,6 @@ COUNT_BLUE = 4
 COUNT_GREEN = 6
 COUNT_OFF = 4
 COUNT_RED = 6
-# base image
-base_path = "./dataset/v1/original_img/base.png"
-base_img = cv2.imread(base_path)
 
 def set_leds_task():
     if (COUNT_BLUE + COUNT_GREEN + COUNT_OFF + COUNT_RED) != LED_COUNT:
@@ -72,15 +68,18 @@ def show_prediction_result(cam, model, stop_event):
             if frame is None:
                 continue
             frame = apply_perspective_transform(frame)
-            # ---------- diff infer ------------
+            # ---------- diff infer ------------ #
             # diff_img = cv2.absdiff(frame, base_img)
             # mask_display = cv2.cvtColor(all_color, cv2.COLOR_RGB2BGR)
-            # ---------- tflite infer -----------
+            # ---------- tflite infer ----------- #
             # mask = model.predict(frame)
             all_color, wire_mask, connector_mask = model.predict(frame, return_color=True, save=False)
             mask_display = all_color # RGB
             
-            if wire_mask and connector_mask:
+            conn_img = None
+            wire_img = None
+            
+            if wire_mask is not None and connector_mask is not None:
                 estimator = PoseEstimation(wire_mask, connector_mask)
                 if estimator.is_success():
                     (pos, angle, conn_img, wire_img) = estimator.result
@@ -88,14 +87,14 @@ def show_prediction_result(cam, model, stop_event):
                 else:
                     print("[!] pose estimation failed.")
                     
-            # 儲存 wire_mask 和 connector_mask（皆為二值圖）
+            # 儲存 wire_mask 和 connector_mask
             with mask_lock:
                 shared_mask = mask_display 
-                shared_wire_img = wire_mask
-                shared_conn_img = connector_mask
+                shared_wire_img = wire_img
+                shared_conn_img = conn_img
                 
         except Exception as e:
-            print(f"infer thread is error. {e}")
+            print(f"[!] infer failed. {e}")
         
 def print_all_threads():
     msg = f"現在執行緒數量：{threading.active_count()}\n"
@@ -135,6 +134,8 @@ def main():
                     if shared_wire_img is not None and shared_conn_img is not None:
                         cv2.imshow("wire Mask", shared_wire_img)
                         cv2.imshow("conn Mask", shared_conn_img)
+                    else:
+                        print("[!] 沒有回傳 wire_img 或 conn_img")
                         
             key = cv2.waitKey(1)
             if key == 27:

@@ -60,13 +60,19 @@ class PoseEstimation:
         self.center = (int(c_centroid), int(r_centroid))
         return True
     
-    def _analyze_connector(self):
+    def _analyze_connector(self, min_conn_area=1000):
         if self.center is None:
             print("[!] 未找到 wire 的中心點")
             return None
         # 找輪廓
         contours, _ = cv2.findContours(self.conn_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         cnt = max(contours, key=cv2.contourArea)
+        area = cv2.contourArea(cnt)
+        print(f"connecter area: {area}")
+        if area < min_conn_area:
+            print(f"[!] connector 區域面積小於 {min_conn_area} 像素，無法分析")
+            return None        
+        
         epsilon = 0.1 * cv2.arcLength(cnt, True)
         approx = cv2.approxPolyDP(cnt, epsilon, True) # 回傳頂點座標
         # 取得角點座標 (row, column)
