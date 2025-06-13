@@ -48,8 +48,8 @@ class UNetSegmenter:
             print(f"推論完成, 耗時: {end_time - start_time:.2f}秒")
             
             # === 建立二值圖（OpenCV 用） ===
-            wire_mask = ((pred_mask == 1).astype(np.uint8)) * 255
-            connector_mask = ((pred_mask == 2).astype(np.uint8)) * 255
+            wire_mask = ((pred_mask == 1).astype(np.uint8)) 
+            connector_mask = ((pred_mask == 2).astype(np.uint8)) 
             # --- 彩圖 all（背景黑，wire藍，connector綠） ---
             h, w = pred_mask.shape
             all_color = np.zeros((h, w, 3), dtype=np.uint8)
@@ -59,11 +59,13 @@ class UNetSegmenter:
             # 根据选择的类别保存结果
             if save:
                 # 存彩色圖
+                wire_mask = wire_mask * 255
+                connector_mask = connector_mask * 255
                 Image.fromarray(all_color).save(os.path.join(output_dir, f"{base_name}_color_all.png"))
                 Image.fromarray(wire_mask).save(os.path.join(output_dir, f"{base_name}_color_wire.png"))
                 Image.fromarray(connector_mask).save(os.path.join(output_dir, f"{base_name}_color_connector.png"))
             
-            return all_color, wire_mask, connector_mask # RGB
+            return all_color, wire_mask, connector_mask # RGB; binary; binary
             
         
         except Exception as e:

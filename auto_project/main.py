@@ -9,6 +9,8 @@ from camera_module import Camera
 from tflite_segmentation import TFLiteModel
 import config
 from inference_segmentation import UNetSegmenter
+from pose_estimation import PoseEstimation
+
 
 # lock
 shared_mask = None
@@ -59,21 +61,39 @@ def set_leds_task():
         
 def show_prediction_result(cam, model, stop_event):
     global shared_mask
+    global shared_wire_img 
+    global shared_conn_img 
+    shared_wire_img = None
+    shared_conn_img = None
+    
     while not stop_event.is_set():
         try:
             frame = cam.get_latest_frame()
             if frame is None:
                 continue
             frame = apply_perspective_transform(frame)
-            # ---- diff infer
+            # ---------- diff infer ------------
             # diff_img = cv2.absdiff(frame, base_img)
             # mask_display = cv2.cvtColor(all_color, cv2.COLOR_RGB2BGR)
-            # ---- tflite infer
+            # ---------- tflite infer -----------
             # mask = model.predict(frame)
             all_color, wire_mask, connector_mask = model.predict(frame, return_color=True, save=False)
             mask_display = all_color # RGB
+            
+            if wire_mask and connector_mask:
+                estimator = PoseEstimation(wire_mask, connector_mask)
+                if estimator.is_success():
+                    (pos, angle, conn_img, wire_img) = estimator.result
+                    print(f"角度為 {angle:.2f}°，中點為 ({pos[0]}, {pos[1]})")
+                else:
+                    print("[!] pose estimation failed.")
+                    
+            # 儲存 wire_mask 和 connector_mask（皆為二值圖）
             with mask_lock:
                 shared_mask = mask_display 
+                shared_wire_img = wire_mask
+                shared_conn_img = connector_mask
+                
         except Exception as e:
             print(f"infer thread is error. {e}")
         
@@ -110,8 +130,12 @@ def main():
             with mask_lock:
                 if shared_mask is not None:
                     predict_mask = cv2.cvtColor(shared_mask, cv2.COLOR_RGB2BGR)  # 轉換為 BGR 格式以便顯示
-                    cv2.imshow("Mask", predict_mask)           
-            
+                    
+                    cv2.imshow("Mask", predict_mask)
+                    if shared_wire_img is not None and shared_conn_img is not None:
+                        cv2.imshow("wire Mask", shared_wire_img)
+                        cv2.imshow("conn Mask", shared_conn_img)
+                        
             key = cv2.waitKey(1)
             if key == 27:
                 break
