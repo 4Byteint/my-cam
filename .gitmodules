@@ -1,0 +1,3 @@
+[submodule "auto_project/ROS_workspace/auto_project/ROS_workspace/handsystem"]
+	path = auto_project/ROS_workspace/auto_project/ROS_workspace/handsystem
+	url = git@github.com:4Byteint/handsystem.git
