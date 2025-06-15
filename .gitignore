@@ -1,2 +1,19 @@
 .venv*
 onnx2tflite/
+
+# ROS 2 build outputs
+ROS_workspace/handsystem/ros2_robot_ws/build/
+ROS_workspace/handsystem/ros2_robot_ws/install/
+ROS_workspace/handsystem/ros2_robot_ws/log/
+
+# ROS 2 workspace
+ROS_workspace/handsystem/.vscode/
+
+
+# Python cache
+__pycache__/
+*.pyc
+
+# VSCode, JetBrains IDE files
+.vscode/
+.idea/

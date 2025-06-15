@@ -94,6 +94,7 @@ class CanId:
     CANID_PI_TO_ALL = 1
     CANID_PI_TO_STM = 2
     CANID_PI_TO_UNO = 3
+    
 
 
 class Device:
