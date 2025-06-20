@@ -3,6 +3,7 @@
 
 from datetime import datetime
 import os
+import cv2
 import numpy as np
 from PIL import Image
 import torch
@@ -61,35 +62,15 @@ class UNet(nn.Module):
 
 # ============ 自訂 Dataset ============
 class SegmentationDataset(Dataset):
-    def __init__(self, image_dir, mask_dir,transform=None, train=True, use_augmentation=True):
+    def __init__(self, image_dir, mask_dir, transform=None, train=True, use_augmentation=True):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
         self.image_list = sorted(os.listdir(image_dir))
         self.transform = T.ToTensor()
         # self.transform_image, self.transform_mask = self.get_transforms(train, use_augmentation)
-    def get_transforms(self, train, use_aug):
-        if train and use_aug:
-            transform_image = T.Compose([
-                T.RandomRotation(degrees=10),
-                T.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3),
-                T.ToTensor(),
-                T.Normalize(mean=(0, 0, 0), std=(1.0, 1.0, 1.0))
-            ])
-            transform_mask = T.Compose([
-                T.RandomRotation(degrees=10),  # 必須與 image 相同變換，需手動同步（下面會處理）
-                T.ToTensor()
-            ])
-        else:
-            transform_image = T.Compose([
-                T.ToTensor(),
-            ])
-            transform_mask = T.Compose([
-                T.ToTensor()
-            ])
-
-        return transform_image, transform_mask
-    
-    
+        self.train = train
+        self.use_augmentation = use_augmentation
+        
     def __len__(self):
         return len(self.image_list)
 
@@ -99,27 +80,47 @@ class SegmentationDataset(Dataset):
         
         image = Image.open(image_path).convert('RGB')
         mask = Image.open(mask_path)
+        # 轉成 cv 可用格式
+        image = np.array(image).astype(np.uint8)
+        mask = np.array(mask).astype(np.uint8)
 
-        # # 若 mask 為 RGB 或 paletted，需轉成灰階類別圖
-        # if mask.mode != 'L':
-        #     mask = mask.convert('L')
+        if self.train and self.use_augmentation:
+            image, mask = self.augment(image, mask)
 
-        # # 為了讓旋轉對齊，使用相同 seed 處理 image 和 mask
-        # seed = random.randint(0, 2**32)
-        # random.seed(seed)
-        # image = self.transform_image(image)
-
-        # random.seed(seed)
-        # mask = self.transform_mask(mask)
-
-        # # mask 為 [1, H, W]，要 squeeze 掉 channel
-        # return image, mask.squeeze(0).long()
-        
-        image = self.transform(image)
-
-        mask = torch.as_tensor(np.array(mask), dtype=torch.long)
+        # 轉為 tensor 格式
+        image = torch.from_numpy(image.transpose((2, 0, 1))).float() / 255.0
+        mask = torch.from_numpy(mask).long()
 
         return image, mask
+    
+    
+    def augment(self, image, mask):
+        h, w = image.shape[:2]
+
+        # ✅ 小角度旋轉 ±15°，仿射變換（image=bilinear, mask=nearest）
+        angle = random.uniform(-15, 15)
+        center = (w // 2, h // 2)
+        rot_mat = cv2.getRotationMatrix2D(center, angle, 1.0)
+        image = cv2.warpAffine(image, rot_mat, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+        mask = cv2.warpAffine(mask, rot_mat, (w, h), flags=cv2.INTER_NEAREST, borderMode=cv2.BORDER_REFLECT)
+
+        # ✅ 光強變化
+        brightness_factor = random.uniform(0.7, 1.3)
+        image = np.clip(image * brightness_factor, 0, 255).astype(np.uint8)
+
+        # ✅ 模糊
+        if random.random() < 0.5:
+            image = cv2.GaussianBlur(image, (5, 5), 0)
+
+        # ✅ 加入高斯雜訊
+        if random.random() < 0.5:
+            noise = np.random.normal(0, 10, image.shape).astype(np.int16)
+            image = np.clip(image.astype(np.int16) + noise, 0, 255).astype(np.uint8)
+
+        return image, mask
+    
+    
+    
 # ============ 計算準確率 ============
 def calculate_accuracy(pred, target):
     pred = torch.argmax(pred, dim=1)
@@ -156,6 +157,8 @@ def save_prediction_image(image, mask, pred, save_path):
 # ============ 訓練流程 ============
 def train_model(model, dataloaders, criterion, optimizer, num_epochs=20, lr=1e-3):
     best_loss = float('inf')
+    best_acc = 0.0
+    best_epoch = 0
     history = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": []}
     
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -198,9 +201,17 @@ def train_model(model, dataloaders, criterion, optimizer, num_epochs=20, lr=1e-3
 
             if phase == 'val' and epoch_loss < best_loss:
                 best_loss = epoch_loss
+                best_acc = epoch_acc
+                best_epoch = epoch + 1
                 best_model_path = f"{save_dir}/unet-epoch{epoch+1}-lr{lr}.pth"
                 torch.save(model.state_dict(), best_model_path)
                 print(f"✅ 儲存最佳模型：{best_model_path}")
+
+    # 打印最佳结果
+    print(f"\n🎯 訓練完成！最佳結果：")
+    print(f"   最佳 Epoch: {best_epoch}")
+    print(f"   最佳驗證 Loss: {best_loss:.4f}")
+    print(f"   最佳驗證 Accuracy: {best_acc:.4f}")
 
     # 儲存 loss 與 acc 曲線
     curve_path = f"{save_dir}/unet-epoch{num_epochs}-lr{lr}_curve.png"
@@ -243,27 +254,17 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("🚀 使用設備：", device)
 
-    image_dir = "./dataset/v1/data2_dataset_voc/PngImages"
-    mask_dir = "./dataset/v1/data2_dataset_voc/SegmentationClass"
-
-    # 使用固定隨機種子切割資料集
-    # all_indices = list(range(len(os.listdir(image_dir))))
-    # train_len = int(0.8 * len(all_indices))
-    # val_len = len(all_indices) - train_len
-    # generator = torch.Generator().manual_seed(42)
-    # train_indices, val_indices = random_split(all_indices, [train_len, val_len], generator=generator)
-
-    # train_dataset = SegmentationDataset(image_dir, mask_dir, train=True, use_augmentation=False)
-    # val_dataset = SegmentationDataset(image_dir, mask_dir, train=False, use_augmentation=False)
+    image_dir = "./dataset/v1/demo_dataset_voc/PngImages"
+    mask_dir = "./dataset/v1/demo_dataset_voc/SegmentationClass"
     
-    # train_set = Subset(train_dataset, train_indices)
-    # val_set = Subset(val_dataset, val_indices)
     
-    # 使用一般資料集
-    dataset = SegmentationDataset(image_dir, mask_dir)
-    train_len = int(0.8 * len(dataset))
-    val_len = len(dataset) - train_len
-    train_set, val_set = random_split(dataset, [train_len, val_len])
+    # 資料集與 DataLoader
+    train_dataset = SegmentationDataset(image_dir, mask_dir, train=True, use_augmentation=True)
+    val_dataset = SegmentationDataset(image_dir, mask_dir, train=False, use_augmentation=False)
+    
+    train_len = int(0.8 * len(train_dataset))
+    val_len = len(val_dataset) - train_len
+    train_set, val_set = random_split(train_dataset, [train_len, val_len])
     
     dataloaders = {
         'train': DataLoader(train_set, batch_size=4, shuffle=True),
