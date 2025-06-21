@@ -11,6 +11,9 @@ from train_segmentation import UNet
 from tqdm import tqdm
 import time
 import cv2
+import config
+from pose_estimation import PoseEstimation
+
 class UNetSegmenter:
     def __init__(self, model_path):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -23,7 +26,7 @@ class UNetSegmenter:
         ])
         self.model.eval()
 
-    def predict(self, frame, return_color=False, output_dir="./predict/v1", save=False):
+    def predict(self, frame, original_filename=None, return_color=False, output_dir="./predict/v1", save=False):
         """
         frame: 相機拍攝的 BGR 
         item: 'all'、'wire'、'connector'
@@ -35,7 +38,10 @@ class UNetSegmenter:
         if save:
             self._create_dir(output_dir)
         try:
-            base_name = time.strftime("%Y%m%d_%H%M%S")
+            if original_filename is not None:
+                base_name = os.path.splitext(os.path.basename(original_filename))[0]
+            else:
+                base_name = time.strftime("%Y%m%d_%H%M%S")
             image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             image_tensor = self.transform(image).unsqueeze(0).to(self.device) # ?
             start_time = time.time()
@@ -74,3 +80,10 @@ class UNetSegmenter:
             
     def _create_dir(self, path):
         os.makedirs(path, exist_ok=True)
+    
+if __name__ == "__main__":
+    model = UNetSegmenter(config.PTH_MODEL_PATH)
+    img_path = "./dataset/experiment/img2.png"
+    frame = cv2.imread(img_path)
+    all_color, wire_mask, connector_mask = model.predict(frame, original_filename=img_path, save=True, output_dir="./dataset/experiment/predict")
+   

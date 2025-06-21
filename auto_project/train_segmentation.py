@@ -66,7 +66,6 @@ class SegmentationDataset(Dataset):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
         self.image_list = sorted(os.listdir(image_dir))
-        self.transform = T.ToTensor()
         # self.transform_image, self.transform_mask = self.get_transforms(train, use_augmentation)
         self.train = train
         self.use_augmentation = use_augmentation
@@ -259,12 +258,11 @@ if __name__ == '__main__':
     
     
     # 資料集與 DataLoader
-    train_dataset = SegmentationDataset(image_dir, mask_dir, train=True, use_augmentation=True)
-    val_dataset = SegmentationDataset(image_dir, mask_dir, train=False, use_augmentation=False)
+    dataset = SegmentationDataset(image_dir, mask_dir, train=True, use_augmentation=True)
     
-    train_len = int(0.8 * len(train_dataset))
-    val_len = len(val_dataset) - train_len
-    train_set, val_set = random_split(train_dataset, [train_len, val_len])
+    train_len = int(0.8 * len(dataset))
+    val_len = len(dataset) - train_len
+    train_set, val_set = random_split(dataset, [train_len, val_len])
     
     dataloaders = {
         'train': DataLoader(train_set, batch_size=4, shuffle=True),

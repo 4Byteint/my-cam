@@ -32,6 +32,7 @@ class pubsub(Node):
         self.pubFirstTimeFlag = False
         self.canFailedFirstTimeFlag = False
         self.stateTaskPrintFlag = True
+        self.lastPrintedState = None  # 添加变量来跟踪上一次打印的状态
 
         self.currentCmd = ArmCmd.CMD_NO_NEWCMD
 
@@ -253,10 +254,13 @@ class pubsub(Node):
             #
             #
             if self.stateTaskPrintFlag:
-
-                print(
-                    f'Current state: "{GripperState.stateDict.get(self.claw.state,"unknown state")}"'
-                )
+                current_state = self.claw.state
+                # 只有当状态真正改变时才打印
+                if self.lastPrintedState != current_state:
+                    print(
+                        f'Current state: "{GripperState.stateDict.get(current_state,"unknown state")}"'
+                    )
+                    self.lastPrintedState = current_state
                 self.stateTaskPrintFlag = False
             #
             #

@@ -41,4 +41,5 @@ python
 ```
 
 
-# 
+# undone
+1. readCanCallback() creates a new thread each time it's called. Because threads are added faster than removed, and Docker allows fewer threads than the host, ros2 main.py (gripper_sub) shuts down after ~5 minutes due to resource exhaustion. (unsloved perfectly)

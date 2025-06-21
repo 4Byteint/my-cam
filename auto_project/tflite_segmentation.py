@@ -22,7 +22,7 @@ class TFLiteModel:
         self.input_shape = self.input_details[0]['shape'][1:3]  # (height, width)
         
     def preprocess(self, raw_image):
-        raw_image = cv2.cvtColor(raw_image, cv2.COLOR_BGR2RGB) ### 這裡要改成RGB輸入
+        raw_image = cv2.cvtColor(raw_image, cv2.COLOR_BGR2RGB) 
         image = apply_perspective_transform(raw_image)
         
         # 正規化

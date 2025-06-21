@@ -4,12 +4,43 @@ import cv2
 import os
 import time, board, threading, neopixel
 
-from utils import draw_fps, apply_perspective_transform
+from utils import draw_fps, apply_perspective_transform, image_to_world
 from camera_module import Camera
 from tflite_segmentation import TFLiteModel
 import config
 from inference_segmentation import UNetSegmenter
 from pose_estimation import PoseEstimation
+import socket
+
+
+# 狀態管理類
+class StatusManager:
+    def __init__(self):
+        self.status_lock = threading.Lock()
+        self.current_status = {
+            'pose_estimation': None,  # None, 'success', 'failed'
+            'inference': None,        # None, 'success', 'failed'
+            'wire_conn_img': None,    # None, 'available', 'missing'
+        }
+        self.last_printed_status = {}
+    
+    def update_and_print_status(self, status_type, new_status, success_msg=None, fail_msg=None):
+        """更新狀態並在狀態改變時印出訊息"""
+        with self.status_lock:
+            if self.current_status[status_type] != new_status:
+                self.current_status[status_type] = new_status
+                
+                if new_status == 'success' and success_msg:
+                    print(success_msg)
+                elif new_status == 'failed' and fail_msg:
+                    print(fail_msg)
+                elif new_status == 'available' and success_msg:
+                    print(success_msg)
+                elif new_status == 'missing' and fail_msg:
+                    print(fail_msg)
+
+# 全域狀態管理器
+status_manager = StatusManager()
 
 # lock
 shared_mask = None
@@ -54,13 +85,21 @@ def set_leds_task():
         pixels[i] = COLOR_RED
 
     pixels.show()
-        
+# socket sender
+def create_socket_sender(host='127.0.0.1', port=5005):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((host, port))
+    return s
+
+
+
 def show_prediction_result(cam, model, stop_event):
     global shared_mask
     global shared_wire_img 
     global shared_conn_img 
     shared_wire_img = None
     shared_conn_img = None
+    H_homo = np.load(config.HOMOGRAPHY_MATRIX_PATH)
     
     while not stop_event.is_set():
         try:
@@ -76,6 +115,9 @@ def show_prediction_result(cam, model, stop_event):
             all_color, wire_mask, connector_mask = model.predict(frame, return_color=True, save=False)
             mask_display = all_color # RGB
             
+            # 更新推理狀態為成功
+            status_manager.update_and_print_status('inference', 'success')
+            
             conn_img = None
             wire_img = None
             
@@ -83,9 +125,17 @@ def show_prediction_result(cam, model, stop_event):
                 estimator = PoseEstimation(wire_mask, connector_mask)
                 if estimator.is_success():
                     (pos, angle, conn_img, wire_img) = estimator.result
-                    print(f"角度為 {angle:.2f}°，中點為 ({pos[0]}, {pos[1]})")
+                    success_msg = f"角度為 {angle:.2f}°，中點為 ({pos[0]}, {pos[1]})"
+                    status_manager.update_and_print_status('pose_estimation', 'success', success_msg)
+                    world_pos = image_to_world(pos, H_homo)
+                    print(f"世界座標為 {world_pos[0]}, {world_pos[1]}")
+                    # try:
+                    #     message = f"{world_pos[0]},{world_pos[1]},{angle:.1f}\n"
+                    #     sender_socket.sendall(message.encode('utf-8'))
+                    # except Exception as e:
+                    #     print(f"[!] send message failed. {e}")
                 else:
-                    print("[!] pose estimation failed.")
+                    status_manager.update_and_print_status('pose_estimation', 'failed', fail_msg="[!] pose estimation failed.")
                     
             # 儲存 wire_mask 和 connector_mask
             with mask_lock:
@@ -94,27 +144,24 @@ def show_prediction_result(cam, model, stop_event):
                 shared_conn_img = conn_img
                 
         except Exception as e:
-            print(f"[!] infer failed. {e}")
+            status_manager.update_and_print_status('inference', 'failed', fail_msg=f"[!] infer failed. {e}")
         
-def print_all_threads():
-    msg = f"現在執行緒數量：{threading.active_count()}\n"
-    for t in threading.enumerate():
-        msg += f"Name: {t.name}, Deamon:{t.daemon}!\n"
-    print(msg)
+
     
 def main():
     cam = Camera(use_undistort=True)
     cam.start()
     set_leds_task()
     stop_event = threading.Event()
-
+    # sender_socket = create_socket_sender()
     # 初始化模型
     # model = TFLiteModel(config.TFLITE_MODEL_NAME)
     model = UNetSegmenter(config.PTH_MODEL_PATH)
     
+    # infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event, sender_socket), daemon=True)
     infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event), daemon=True)
     infer_thread.start()
-    base_count = 145
+    base_count = 3
     try:
         while True:
             frame = cam.get_latest_frame()
@@ -134,14 +181,15 @@ def main():
                     if shared_wire_img is not None and shared_conn_img is not None:
                         cv2.imshow("wire Mask", shared_wire_img)
                         cv2.imshow("conn Mask", shared_conn_img)
+                        status_manager.update_and_print_status('wire_conn_img', 'available')
                     else:
-                        print("[!] 沒有回傳 wire_img 或 conn_img")
+                        status_manager.update_and_print_status('wire_conn_img', 'missing', fail_msg="[!] 沒有回傳 wire_img 或 conn_img")
                         
             key = cv2.waitKey(1)
             if key == 27:
                 break
             elif key == ord('b'):
-                base_path = "./dataset/v1/original_img"
+                base_path = "./dataset/experiment"
                 img_name = os.path.join(base_path, f"img{base_count}.png")
                 frame = apply_perspective_transform(frame)
                 cv2.imwrite(img_name, frame)
@@ -150,6 +198,7 @@ def main():
     finally:
         stop_event.set()
         infer_thread.join()
+        # sender_socket.close()
         cv2.destroyAllWindows()
         cam.close()
         print("main process ends totally.")

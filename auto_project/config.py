@@ -14,19 +14,18 @@ DIST_COEFF_PATH = "calibration/dist_coeff.npy"
 
 # 模型相關與轉換
 MODEL_INPUT_SIZE = (220, 180) # (height, width)
-PTH_MODEL_PATH = "./model_train/2025-06-12_15-05-00/unet-epoch266-lr0.0001.pth"
+PTH_MODEL_PATH = "./model_train/2025-06-20_02-54-15/unet-epoch297-lr0.0001.pth"
 DEVICE = "cuda"
-ONNX_MODEL_PATH = "./model_train/2025-06-09_15-12-02/unet-epoch300-lr0.0001.onnx"
-TFLITE_MODEL_PATH = "./model_train/2025-06-09_15-12-02/"  # TFLite 模型路徑
-TFLITE_MODEL_NAME = "./model_train/2025-06-09_15-12-02/unet-epoch300-lr0.tflite"
+# ONNX_MODEL_PATH = "./model_train/2025-06-09_15-12-02/unet-epoch300-lr0.0001.onnx"
+# TFLITE_MODEL_PATH = "./model_train/2025-06-09_15-12-02/"  # TFLite 模型路徑
+# TFLITE_MODEL_NAME = "./model_train/2025-06-09_15-12-02/unet-epoch300-lr0.tflite"
 
 # 影像轉換設定
 POINTS = [(120, 0), (506, 0), (458, 366), (197, 369)] # 框偵測的四個點 
 PERSPECTIVE_MATRIX_PATH = "calibration/perspective_matrix_180x220.npy"
 PERSPECTIVE_SIZE = (180, 220) # (w, h)
-
-
-# 模型輸入大小
+# 座標轉成世界座標
+HOMOGRAPHY_MATRIX_PATH = "calibration/homography_180x220.npy"
 
 # 分割後的角度分析
 MIN_REGION_AREA = 50

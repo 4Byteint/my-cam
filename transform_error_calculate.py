@@ -129,6 +129,10 @@ if __name__ == "__main__":
     # 計算單應性矩陣
     H_homo = calculate_homography(image_pts, world_ref_pts)
     
+    # 儲存單應性矩陣
+    np.save("./calibration/homography_180x220.npy", H_homo)
+    print(f"單應性矩陣已儲存至: ./calibration/homography_180x220.npy")
+    
     # 計算各個位置的中心點
     # center_point = calculate_center_point(image_pts)
     # top_center = calculate_edge_center(image_pts, 'top')
