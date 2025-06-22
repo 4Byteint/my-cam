@@ -32,7 +32,9 @@ def ROI(img, points):
     # 裁剪白色背景的 ROI
     cropped_dst_white = dst_white[y:y+h, x:x+w]
     cv2.imshow("cropped_dst_white", cropped_dst_white)
+    cv2.imwrite("./pic/cropped_dst_white.png", cropped_dst_white)
     cv2.imshow("img", img)
+    cv2.imwrite("./pic/img.png", img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     return cropped_dst_white
@@ -53,6 +55,7 @@ def detect_points_2(image):
     
     # 顯示邊緣檢測結果
     cv2.imshow("edges", edges)
+    cv2.imwrite("./pic/edges.png", edges)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
@@ -202,6 +205,7 @@ def detect_points_2(image):
                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
     
     cv2.imshow("Clustered Points", cluster_image)
+    cv2.imwrite("./pic/Clustered_Points.png", cluster_image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     
@@ -240,6 +244,7 @@ def detect_points_2(image):
     
     # 顯示結果
     cv2.imshow("Final Points", final_image)
+    cv2.imwrite("./pic/Final_Points.png", final_image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     
@@ -261,6 +266,7 @@ def detect_points_2(image):
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
     
     cv2.imshow("Filtered Intersection Points", filtered_points_image)
+    cv2.imwrite("./pic/Filtered_Intersection_Points.png", filtered_points_image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     
@@ -284,6 +290,7 @@ def detect_square(image):
     blurred = cv2.medianBlur(gray, 3)
     edges = cv2.Canny(blurred, 20, 130)
     cv2.imshow("edges", edges)
+    cv2.imwrite("./pic/edges_square.png", edges)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     # 定義結構元素
@@ -291,12 +298,14 @@ def detect_square(image):
     # 使用閉合操作填補斷裂的線段
     # closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
     # cv2.imshow("closed", closed)
+    # cv2.imwrite("./pic/closed.png", closed)
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()
     # 尋找輪廓
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cv2.drawContours(output_image, contours, -1, (0, 255, 0), 2)
     cv2.imshow("contours", output_image)
+    cv2.imwrite("./pic/contours.png", output_image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     
@@ -451,10 +460,12 @@ def detect_square(image):
 
     # # 顯示結果
     # cv2.imshow("Middle Contours", output_image)
+    # cv2.imwrite("./pic/Middle_Contours.png", output_image)
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()
     # 顯示結果
     cv2.imshow("Detected Rectangles", output_image)
+    cv2.imwrite("./pic/Detected_Rectangles.png", output_image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     print(type(squares))
@@ -504,6 +515,7 @@ def apply_perspective_transform(image, sorted_points):
     # 應用透視變換
     warped_image = cv2.warpPerspective(image, H, config.PERSPECTIVE_SIZE)
     cv2.imshow("warped_image", warped_image)
+    cv2.imwrite("./pic/warped_image.png", warped_image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     return warped_image, H

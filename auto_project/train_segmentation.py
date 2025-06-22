@@ -96,8 +96,8 @@ class SegmentationDataset(Dataset):
     def augment(self, image, mask):
         h, w = image.shape[:2]
 
-        # ✅ 小角度旋轉 ±15°，仿射變換（image=bilinear, mask=nearest）
-        angle = random.uniform(-15, 15)
+        # ✅ 小角度旋轉 ±5°，仿射變換（image=bilinear, mask=nearest）
+        angle = random.uniform(-5, 5)
         center = (w // 2, h // 2)
         rot_mat = cv2.getRotationMatrix2D(center, angle, 1.0)
         image = cv2.warpAffine(image, rot_mat, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
@@ -236,14 +236,15 @@ def train_model(model, dataloaders, criterion, optimizer, num_epochs=20, lr=1e-3
 
     # 儲存預測圖像
     model.eval()
-    sample_img, sample_mask = dataloaders['val'].dataset[0]
     with torch.no_grad():
-        pred = model(sample_img.unsqueeze(0).to(device))
-        
-    # denorm_img = denormalize(sample_img.cpu())
-    predict_path = f"{save_dir}/unet-epoch{num_epochs}-lr{lr}_predict.png"
-    save_prediction_image(sample_img, sample_mask, pred.cpu(), predict_path)
-    print(f"✅ 已儲存範例預測圖：{predict_path}")
+        for i in range(5):
+            img, mask = dataloaders['val'].dataset[i]
+            pred = model(img.unsqueeze(0).to(device))
+            
+            predict_path = f"{save_dir}/unet-epoch{num_epochs}-lr{lr}_predict_{i}.png"
+            save_prediction_image(img, mask, pred.cpu(), f"{save_dir}/unet-epoch{num_epochs}-lr{lr}_predict_{i}.png")
+            print(f"✅ 已儲存範例預測圖：{predict_path}")
+            
     # 印出訓練總時長
     total_seconds = (datetime.now() - datetime.strptime(timestamp, "%Y-%m-%d_%H-%M-%S")).total_seconds()
     print(f"⏱️ 訓練總時長：{total_seconds:.2f} 秒")
@@ -274,4 +275,4 @@ if __name__ == '__main__':
     lr = 0.0001
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
-    train_model(model, dataloaders, criterion, optimizer, num_epochs=300, lr=lr)
+    train_model(model, dataloaders, criterion, optimizer, num_epochs=500, lr=lr)
