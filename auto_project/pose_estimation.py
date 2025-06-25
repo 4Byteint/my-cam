@@ -3,6 +3,8 @@ import cv2
 import numpy as np
 import config
 from utils import image_to_world
+
+
     
 class PoseEstimation:
     def __init__(self, wire_mask, conn_mask, min_wire_area=500, min_conn_area=1000):
@@ -18,7 +20,10 @@ class PoseEstimation:
         self.conn_bgr = None
         self.wire_bgr = None
         self.mx_my = None
+        self.major_axis = None
+        self.minor_axis = None
         self.result = self._process()
+        
         
     def _auto_binarize(self, img, threshold=127):
         if img is None:
@@ -33,26 +38,30 @@ class PoseEstimation:
         if self.wire_mask is None or self.conn_mask is None:
             print("[!] wire_mask 或 conn_mask 未提供")
             return None
-        #################################有線##########################################
-        # if self._find_center_from_wire():
-        #     conn_result = self._analyze_connector()
-        #     if conn_result is None:
-        #         return None
-        #     else:
-        #         self.mx_my, self.conn_angle_deg, self.conn_bgr = conn_result
-        #         self.wire_bgr = self._draw_results()
-        #         return self.mx_my, self.conn_angle_deg, self.conn_bgr, self.wire_bgr
-        # else:
-        #     return None
-        
-        ############################不檢查是否有線##########################################
-        conn_result = self.only_conn_pose()
-        if conn_result is None:
-            return None
+        ###################################################################################
+        ###################################有線############################################
+        ###################################################################################
+        if self._find_center_from_wire():
+            conn_result = self._analyze_connector()
+            if conn_result is None:
+                return None
+            else:
+                self.mx_my, self.conn_angle_deg, self.conn_bgr = conn_result
+                self.wire_bgr = self._draw_results()
+                return self.mx_my, self.conn_angle_deg, self.conn_bgr, self.wire_bgr
         else:
-            self.mx_my, self.conn_angle_deg, self.conn_bgr = conn_result
-            return self.mx_my, self.conn_angle_deg, self.conn_bgr
-        
+            return None
+        ###################################################################################
+        ############################不檢查是否有線##########################################
+        ###################################################################################
+        # conn_result = self.only_conn_pose()
+        # if conn_result is None:
+        #     return None
+        # else:
+        #     self.mx_my, self.conn_angle_deg, self.conn_bgr = conn_result
+        #     return self.mx_my, self.conn_angle_deg, self.conn_bgr
+        ###################################################################################
+ 
     def is_success(self):
         return self.result is not None
     
@@ -66,7 +75,30 @@ class PoseEstimation:
         r_centroid = rows.mean()
         c_centroid = cols.mean()
         self.center = (int(c_centroid), int(r_centroid))
+        
+        # ************** 使用 PCA 找中心點 **************
+        points = np.column_stack((cols, rows))  # cols是X，rows是Y
+        pca_center = (c_centroid, r_centroid)
+        pca_centered = points - pca_center
+
+        # 3. 協方差矩陣
+        cov = np.cov(pca_centered, rowvar=False)
+
+        # 4. 特徵分解
+        eigenvalues, eigenvectors = np.linalg.eigh(cov)  # 適用對稱矩陣
+
+        # 5. 依特徵值排序（大→小）
+        order = eigenvalues.argsort()[::-1]
+        eigenvalues = eigenvalues[order]
+        eigenvectors = eigenvectors[:, order]
+
+        # 6. 主要與次要方向
+        # eigenvectors 是2*2矩陣
+        self.major_axis = eigenvectors[:, 0]  # 主方向 第一個col 
+        self.minor_axis = eigenvectors[:, 1]  # 次方向 第二個col
+        
         return True
+    
     
     def _analyze_connector(self):
         if self.center is None:
@@ -81,25 +113,84 @@ class PoseEstimation:
             print(f"[!] connector 區域面積小於 {self.min_conn_area} 像素，無法分析")
             return None        
         
-        epsilon = 0.01 * cv2.arcLength(cnt, True)
+        epsilon = 0.05 * cv2.arcLength(cnt, True)
         approx = cv2.approxPolyDP(cnt, epsilon, True) # 回傳頂點座標
         # 取得角點座標 (row, column)
         corners = [tuple(pt[0]) for pt in approx]  # 每個 pt 為 [[x, y]]
-        # 計算center到每個角點的距離，並選出最近的兩點
-        if len(corners) < 2:
-            print("[!] 角點不足兩個，無法選出最近的兩點。")
-            return False
-        # 計算到 center 的距離並排序，取最小兩個
-        a, b = self.center
-        # 計算並得到 (距離, (x,y)) 的列表
-        dists = [((x - a)**2 + (y - b)**2, (x, y)) for (x, y) in corners]
-        dists.sort(key=lambda t: t[0])
-        closest_pts = [dists[0][1], dists[1][1]]
+        
+        def _find_edge_with_pca(corners):
+            edges = []
+            num_points = len(corners)
+            for i in range(num_points):
+                pt1 = np.array(corners[i])
+                pt2 = np.array(corners[(i + 1) % num_points])
+                # 計算方向向量
+                vec = pt2 - pt1
+                norm = np.linalg.norm(vec)
+                if norm != 0:
+                    vec_unit = vec / norm
+                else:
+                    vec_unit = vec
+                # 計算夾角 (絕對值，忽略方向)
+                cos_theta = np.clip(vec_unit @ self.major_axis, -1.0, 1.0)
+                angle = math.acos(abs(cos_theta))  # 夾角
 
-        # 標示最接近的兩點為藍色實心圓，並畫連線
-        (x1, y1), (x2, y2) = sorted(closest_pts, key=lambda pt: pt[0]) 
+                edges.append({
+                    'pt1': pt1,
+                    'pt2': pt2,
+                    'angle': angle,
+                    'vector': vec_unit
+                })
+
+            # 依照夾角從大到小排序（與主方向越垂直越前面）
+            edges_sorted = sorted(edges, key=lambda x: x['angle'], reverse=True)
+            # 用中位數分組
+            threshold = (edges_sorted[len(edges_sorted) // 2 - 1]['angle'] + edges_sorted[len(edges_sorted) // 2]['angle']) / 2
+            group_large = [e for e in edges_sorted if e['angle'] >= threshold]
+            group_small = [e for e in edges_sorted if e['angle'] < threshold]
+
+            points_large = [e['pt1'] for e in group_large] + [e['pt2'] for e in group_large]
+            points_large = np.array(points_large)
+            center = np.array(self.center) # tuple to array
+            
+            if len(points_large) < 2:
+                raise ValueError("points_large 中的點數不足2個")
+            
+            dists = np.linalg.norm(points_large - center, axis=1)
+            sorted_idx = np.argsort(dists)
+            closest_point1 = points_large[sorted_idx[0]]
+            closest_point2 = points_large[sorted_idx[1]]
+
+            return closest_point1, closest_point2
+        
+        closest_pts = _find_edge_with_pca(corners)
+        if closest_pts is None:
+            print("[!] 無法找到最接近的兩個點")
+            return None
+        
+        # ****************************************************************** #
+        # ********************** 僅使用接近center的兩點 ********************** #
+        # ****************************************************************** #
+        # # 計算center到每個角點的距離，並選出最近的兩點
+        # if len(corners) < 2:
+        #     print("[!] 角點不足兩個，無法選出最近的兩點。")
+        #     return False
+        # # 計算到 center 的距離並排序，取最小兩個
+        # a, b = self.center
+        # # 計算並得到 (距離, (x,y)) 的列表
+        # dists = [((x - a)**2 + (y - b)**2, (x, y)) for (x, y) in corners]
+        # dists.sort(key=lambda t: t[0])
+        # closest_pts = [dists[0][1], dists[1][1]]
+        
+        # ****************************************************************** #
+        # ************************ 計算角度 ********************************* #
+        # ****************************************************************** #
+        (x1, y1), (x2, y2) = sorted(closest_pts, key=lambda pt: pt[0])  # 依 x 從小到大排序
         # 計算並標記中點（黃色）
         mx, my = (x1 + x2) // 2, (y1 + y2) // 2
+        
+        
+        
         
         #############################檢查中點的y座標是否比center的y座標大############################
         # if my > self.center[1]:
@@ -107,10 +198,34 @@ class PoseEstimation:
         #     return None
         ##########################################################################################
         
+        if self.center[1] < my:
+            (x1, y1), (x2, y2) = sorted(closest_pts, key=lambda pt: pt[0], reverse=True)  # 依 x 從小到大排序
+            mx, my = (x1 + x2) // 2, (y1 + y2) // 2
+             # 計算連線方向向量：d=(dx,dy)
+            dx, dy = x2 - x1, y2 - y1
+            # 計算垂線方向向量：p = (dy, -dx) 考慮cv坐標系
+            p = np.array([dy, -dx], dtype=float)
+            # 正規化
+            norm = np.hypot(p[0], p[1])
+            if norm != 0:
+                p_unit = p / norm
+            else:
+                p_unit = p
+            
+            # 計算與 +y 軸的夾角（y 軸為向上，即 (0, -1)）
+            angle_rad = math.atan2(p_unit[0], -p_unit[1])  # 注意是 (x, -y)
+            angle_deg = - math.degrees(angle_rad) # angle轉成正，再反轉方向，回到數學意義上的逆時針(+)
+            
+            if angle_deg > 0:
+                angle_deg = 180 + angle_deg 
+            elif angle_deg < 0:
+                angle_deg = -180 + angle_deg
+        
+        
         # 計算連線方向向量：d=(dx,dy)
         dx, dy = x2 - x1, y2 - y1
-        # 計算垂線方向向量：p = (-dy, dx)
-        p = np.array([-dy, dx], dtype=float)
+        # 計算垂線方向向量：p = (dy, -dx) 考慮cv坐標系
+        p = np.array([dy, -dx], dtype=float)
         # 正規化
         norm = np.hypot(p[0], p[1])
         if norm != 0:
@@ -120,8 +235,8 @@ class PoseEstimation:
         
         # 計算與 +y 軸的夾角（y 軸為向上，即 (0, -1)）
         angle_rad = math.atan2(p_unit[0], -p_unit[1])  # 注意是 (x, -y)
-        angle_deg = math.degrees(angle_rad)
-
+        angle_deg = -math.degrees(angle_rad)
+        
         # 儲存角度（你也可以改成回傳）
         self.conn_angle_rad = angle_rad
         self.conn_angle_deg = angle_deg
@@ -174,8 +289,8 @@ class PoseEstimation:
         
         ################################# 設定 a,b 座標 ########################################
         h, w = self.conn_mask.shape[:2]
-        a = w//2
-        b = h
+        a = w
+        b = h//2
         ##########################################################################################
         # 計算並得到 (距離, (x,y)) 的列表
         dists = [((x - a)**2 + (y - b)**2, (x, y)) for (x, y) in corners]
@@ -192,6 +307,31 @@ class PoseEstimation:
         #     return None
         ##########################################################################################
         
+ 
+        if b < my:
+            (x1, y1), (x2, y2) = sorted(closest_pts, key=lambda pt: pt[0], reverse=True)  # 依 x 從小到大排序
+            mx, my = (x1 + x2) // 2, (y1 + y2) // 2
+             # 計算連線方向向量：d=(dx,dy)
+            dx, dy = x2 - x1, y2 - y1
+            # 計算垂線方向向量：p = (dy, -dx) 考慮cv坐標系
+            p = np.array([dy, -dx], dtype=float)
+            # 正規化
+            norm = np.hypot(p[0], p[1])
+            if norm != 0:
+                p_unit = p / norm
+            else:
+                p_unit = p
+            
+            # 計算與 +y 軸的夾角（y 軸為向上，即 (0, -1)）
+            angle_rad = math.atan2(p_unit[0], -p_unit[1])  # 注意是 (x, -y)
+            angle_deg = math.degrees(angle_rad)
+            
+            if angle_deg > 0:
+                angle_deg = -180 + angle_deg
+            elif angle_deg < 0:
+                angle_deg = 180 + angle_deg
+        
+        
         # 計算連線方向向量：d=(dx,dy)
         dx, dy = x2 - x1, y2 - y1
         # 計算垂線方向向量：p = (dy, -dx) 考慮cv坐標系
@@ -206,12 +346,6 @@ class PoseEstimation:
         # 計算與 +y 軸的夾角（y 軸為向上，即 (0, -1)）
         angle_rad = math.atan2(p_unit[0], -p_unit[1])  # 注意是 (x, -y)
         angle_deg = math.degrees(angle_rad)
-
-        if b < my:
-            if angle_deg < 0:
-                angle_deg = -180 + angle_deg
-            else:
-                angle_deg = 180 + angle_deg
         
         # 儲存角度（你也可以改成回傳）
         self.conn_angle_rad = angle_rad
@@ -255,12 +389,27 @@ class PoseEstimation:
                 color=(0, 0, 255),
                 thickness=1
             )
+            
+            pt1 = self.center
+            pt2 = (
+                int(self.center[0] + self.major_axis[0] * 100),
+                int(self.center[1] + self.major_axis[1] * 100)
+            )
+            cv2.line(wire_bgr, pt1, pt2, (0, 0, 255), 2) # red
+
+            # 次方向線
+            pt3 = (
+                int(self.center[0] + self.minor_axis[0] * 100),
+                int(self.center[1] + self.minor_axis[1] * 100)
+            )
+            cv2.line(wire_bgr, pt1, pt3, (0, 255, 0), 2) # green
+
         return wire_bgr # 0/255
         
 ########################################################
 def main():
     # 載入新的圖像
-    image_path = "./dataset/experiment/predict/img3_color_connector.png"
+    image_path = "./dataset/experiment/predict/img7_color_connector.png"
     image_wire_path = "./dataset/experiment/predict/img3_color_wire.png"
     H_homo = np.load(config.HOMOGRAPHY_MATRIX_PATH)
     wire_mask = cv2.imread(image_wire_path, cv2.IMREAD_GRAYSCALE)
@@ -275,7 +424,7 @@ def main():
         world_pos = image_to_world((mx, my), H_homo)
         print(f"世界座標為 {world_pos[0]}, {world_pos[1]}")
         cv2.imshow("Connector Result", conn_img)
-        cv2.imwrite("./dataset/experiment/predict/0_result.png", conn_img)
+        cv2.imwrite("./dataset/experiment/predict/7_result.png", conn_img)
         # cv2.imshow("Wire Result", wire_img)
     else:
         print("[!] 分析失敗，請檢查輸入圖像或格式")

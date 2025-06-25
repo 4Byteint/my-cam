@@ -83,7 +83,7 @@ class UNetSegmenter:
     
 if __name__ == "__main__":
     model = UNetSegmenter(config.PTH_MODEL_PATH)
-    img_path = "./dataset/experiment/img2.png"
+    img_path = "./dataset/experiment/img7.png"
     frame = cv2.imread(img_path)
     all_color, wire_mask, connector_mask = model.predict(frame, original_filename=img_path, save=True, output_dir="./dataset/experiment/predict")
    
