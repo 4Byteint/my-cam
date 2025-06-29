@@ -2,9 +2,9 @@ import numpy as np
 import cv2
 from typing import List, Tuple
 
-import config
+import auto_project.config as config
 
-def calculate_homography(image_points: List[List[float]], world_points: List[List[float]]) -> np.ndarray:
+def calculate_homography(image_points, world_points):
     """
     計算單應性矩陣
     
@@ -20,7 +20,7 @@ def calculate_homography(image_points: List[List[float]], world_points: List[Lis
     H_homo, _ = cv2.findHomography(src_points, dst_points)
     return H_homo
 
-def image_to_world(image_point: List[float], H_homo: np.ndarray) -> Tuple[float, float]:
+def image_to_world(image_point, H_homo):
     """
     將圖像座標轉換為世界座標
     
@@ -35,7 +35,7 @@ def image_to_world(image_point: List[float], H_homo: np.ndarray) -> Tuple[float,
     transformed_point = cv2.perspectiveTransform(point, H_homo)
     return transformed_point[0][0][0], transformed_point[0][0][1]
 
-def calculate_error(predicted: Tuple[float, float], ground_truth: Tuple[float, float]) -> Tuple[float, float, float]:
+def calculate_error(predicted, ground_truth):
     """
     計算預測點與實際點之間的誤差
     
@@ -51,7 +51,7 @@ def calculate_error(predicted: Tuple[float, float], ground_truth: Tuple[float, f
     total_error = np.sqrt(x_error**2 + y_error**2)
     return x_error, y_error, total_error
 
-def calculate_center_point(points: List[List[float]]) -> List[float]:
+def calculate_center_point(points):
     """
     計算四邊形的中心點
     
@@ -65,7 +65,7 @@ def calculate_center_point(points: List[List[float]]) -> List[float]:
     y_sum = sum(point[1] for point in points)
     return [x_sum / 4, y_sum / 4]
 
-def calculate_edge_center(points: List[List[float]], edge: str) -> List[float]:
+def calculate_edge_center(points, edge):
     """
     計算四邊形邊的中心點
     

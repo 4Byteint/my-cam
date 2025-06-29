@@ -7,26 +7,6 @@ import config
 from typing import Any
 cv2: Any
 
-def ROI(img, points):
-    pts = np.array([points])
-    mask = np.zeros(img.shape[:2], np.uint8)
-    cv2.polylines(mask, pts, 1, 255)    
-    cv2.fillPoly(mask, pts, 255)    
-    dst = cv2.bitwise_and(img, img, mask=mask)
-    bg = np.ones_like(img, np.uint8) * 255
-    cv2.bitwise_not(bg, bg, mask=mask)  
-    
-    # 計算 ROI 的邊界框
-    x, y, w, h = cv2.boundingRect(pts)
-    cropped_roi = dst[y:y+h, x:x+w]
-    # 建立白色背景並應用 mask
-    bg = np.ones_like(img, np.uint8) * 255
-    cv2.bitwise_not(bg, bg, mask=mask)
-    dst_white = bg + dst
-    # 裁剪白色背景的 ROI
-    cropped_dst_white = dst_white[y:y+h, x:x+w]
-
-    return cropped_dst_white
 
 def apply_perspective(image, points, H):
     """
