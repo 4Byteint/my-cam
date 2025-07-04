@@ -101,7 +101,7 @@ def create_socket_sender(host='127.0.0.1', port=5005):
 
 
 
-def show_prediction_result(cam, model, stop_event, sender_socket):
+def show_prediction_result(cam, model, stop_event):
     global shared_mask
     global shared_wire_img
     global shared_conn_img
@@ -173,7 +173,7 @@ def show_prediction_result(cam, model, stop_event, sender_socket):
                         # socket send
                         try:
                             message = f"{world_pos[0]:.2f},{world_pos[1]:.2f},{angle:.2f}\n"
-                            sender_socket.sendall(message.encode('utf-8'))
+                            # sender_socket.sendall(message.encode('utf-8'))
                             print(f"send message success. {message}")
                         except Exception as e:
                             print(f"[!] send message failed. {e}")
@@ -185,7 +185,7 @@ def show_prediction_result(cam, model, stop_event, sender_socket):
                     try:
                         if last_status != False:
                             message = "nan,nan,nan\n"
-                            sender_socket.sendall(message.encode('utf-8'))
+                            # sender_socket.sendall(message.encode('utf-8'))
                             last_status = False
                             print(f"send nan message success. {message}")
                     except Exception as e:
@@ -221,16 +221,16 @@ def main():
     cam.start()
     set_leds_task()
     stop_event = threading.Event()
-    sender_socket = create_socket_sender()
+    # sender_socket = create_socket_sender()
     # 初始化模型
     # model = TFLiteModel(config.TFLITE_MODEL_NAME)
     model = UNetSegmenter(config.PTH_MODEL_PATH)
     ##############################################################################################
     
-    infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event, sender_socket), daemon=True)
-    # infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event), daemon=True)
+    # infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event, sender_socket), daemon=True)
+    infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event), daemon=True)
     infer_thread.start()
-    base_count = 4
+    base_count = 1
     try:
         while True:
             frame = cam.get_latest_frame()
@@ -257,7 +257,7 @@ def main():
             if key == 27:
                 break
             elif key == ord('b'):
-                base_path = "./dataset/experiment"
+                base_path = "./dataset/estimation_1"
                 img_name = os.path.join(base_path, f"img{base_count}.png")
                 frame = apply_perspective_transform(frame)
                 cv2.imwrite(img_name, frame)
@@ -266,7 +266,7 @@ def main():
     finally:
         stop_event.set()
         infer_thread.join()
-        sender_socket.close()
+        # sender_socket.close()
         cv2.destroyAllWindows()
         cam.close()
         print("main process ends totally.")
