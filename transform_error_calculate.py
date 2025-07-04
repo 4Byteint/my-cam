@@ -96,23 +96,22 @@ def generate_square(x, y, size=5.0):
         (x, y - size),
     ]
 
-# 示例使用
 if __name__ == "__main__":
     world_ref_pts = [
-        (-9, 45.5),
-        (9, 45.5),
-        (9, 23.5),
-        (-9, 23.5)
+        (-9, 45.44),
+        (9, 45.44),
+        (9, 23.44),
+        (-9, 23.44)
     ]
 
     world_square_origins = [
-        (-7.0, 41.5),
-        (2, 41.5),
-        (-7, 32.5),
-        (2, 32.5)
+        (-7.0, 41.44), # 左上
+        (2, 41.44), # 右上
+        (-7, 32.44), # 左下
+        (2, 32.44) # 右下
     ]
     world_square_pts = [generate_square(x, y) for x, y in world_square_origins]
-    world_circle_pts = config.WORLD_CIRCLES_PTS # from real world
+    world_circle_pts = config.WORLD_CIRCLES_PTS
     # 圖像座標點
     image_pts = [
         (0, 0),
@@ -121,7 +120,7 @@ if __name__ == "__main__":
         (0, 220)
     ]
     image_square_pts = config.SQUARE_POINTS # from transformed image
-    image_circle_pts = config.CALIB_CIRCLES_PTS # from transformed image
+    image_circle_pts = config.CALIB_CIRCLES_PTS
     
     
     # 透射變換
@@ -130,8 +129,8 @@ if __name__ == "__main__":
     H_homo = calculate_homography(image_pts, world_ref_pts)
     
     # 儲存單應性矩陣
-    np.save("./calibration/homography_180x220.npy", H_homo)
-    print(f"單應性矩陣已儲存至: ./calibration/homography_180x220.npy")
+    np.save("./auto_project/calibration/homography_180x220.npy", H_homo)
+    print(f"單應性矩陣已儲存至: ./auto_project/calibration/homography_180x220.npy")
     
     # 計算各個位置的中心點
     # center_point = calculate_center_point(image_pts)
