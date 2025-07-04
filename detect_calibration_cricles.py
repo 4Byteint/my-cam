@@ -7,121 +7,76 @@ import config
 from typing import Any
 cv2: Any
 
-def ROI(img, points):
-    pts = np.array([points])
-    mask = np.zeros(img.shape[:2], np.uint8)
-    cv2.polylines(mask, pts, 1, 255)    
-    cv2.fillPoly(mask, pts, 255)    
-    dst = cv2.bitwise_and(img, img, mask=mask)
-    bg = np.ones_like(img, np.uint8) * 255
-    cv2.bitwise_not(bg, bg, mask=mask)  
-    
-    # 計算 ROI 的邊界框
-    x, y, w, h = cv2.boundingRect(pts)
-    cropped_roi = dst[y:y+h, x:x+w]
-    # 建立白色背景並應用 mask
-    bg = np.ones_like(img, np.uint8) * 255
-    cv2.bitwise_not(bg, bg, mask=mask)
-    dst_white = bg + dst
-    # 裁剪白色背景的 ROI
-    cropped_dst_white = dst_white[y:y+h, x:x+w]
-
-    return cropped_dst_white
-
-def apply_perspective(image, points, H):
-    """
-    計算透視變換後的影像大小，並調整偏移量，使變換後的影像不固定在 (0,0)
-    :param image: 原始影像
-    :param H: 透視變換矩陣
-    :param points: 原始影像的四個角點 (左上、右上、左下、右下)
-    :return: 變換後的影像
-    """
-    # 轉換點為齊次座標
-    points = np.array(points, dtype=np.float32).reshape((-1, 1, 2))
-    warped_image = cv2.warpPerspective(image, H, config.PERSPECTIVE_SIZE)
-    return warped_image
-
-def detect_circles(warped_diff_img, warped_color_img):
+def detect_circles(diff_img, color_img, output_path_prefix):
     """
     對相減後的圖片進行圓形檢測
     :param warped_diff_img: 經過透視變換的差異圖片
     :param warped_color_img: 經過透視變換的彩色原圖
+    :param output_path_prefix: 輸出圖片的路徑前綴
     :return: 圓心座標列表和處理後的圖片
     """
-    gray_blurred = cv2.GaussianBlur(warped_diff_img, (5,5), 2)
-    cv2.imshow("gray_blurred", gray_blurred)
-    cv2.waitKey(0)  
-    cv2.destroyAllWindows()
+    gray_blurred = cv2.GaussianBlur(diff_img, (5,5), 2)
+    cv2.imwrite(f"{output_path_prefix}_gray_blurred.png", gray_blurred)
 
     # 使用 Canny 邊緣檢測
-    canny = cv2.Canny(gray_blurred, 20, 30)
-    cv2.imshow("canny", canny)
-    cv2.waitKey(0)  
-    cv2.destroyAllWindows()
-
+    canny = cv2.Canny(gray_blurred, 40,80)
+    cv2.imwrite(f"{output_path_prefix}_canny.png", canny)
     
     # 使用篩選後的邊緣進行霍夫圓變換
     circles = cv2.HoughCircles(canny, 
                                cv2.HOUGH_GRADIENT, 
                                dp=1.2, 
                                minDist=100,
-                               param1=10, 
+                               param1=20, 
                                param2=30, 
-                               minRadius=15, 
+                               minRadius=10, 
                                maxRadius=30)
    
     # 使用彩色原圖作為輸出圖片
-    output_img = warped_color_img.copy()
-    circle_centers = []
-    
+    output_img = color_img.copy()
+    centers = []
     if circles is not None:
-        # 將結果轉換為浮點數，保持精確度
-        circles = circles[0]
-        
-        for idx, circle in enumerate(circles):
-            x, y, r = circle
-            
-            # 直接使用 HoughCircles 返回的浮點數座標
-            circle_centers.append((x, y))
-            
-            # 在彩色圖片上標記
-            cv2.circle(output_img, (int(x), int(y)), int(r), (0, 255, 0), 2)  # 綠色圓形
-            cv2.circle(output_img, (int(x), int(y)), 2, (0, 0, 255), 3)  # 紅色圓心
-            cv2.putText(output_img, f"#{idx}", (int(x)-10, int(y)-10),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
-            
-            print(f"圓心 #{idx} 座標: ({x:.2f}, {y:.2f})")
+        # 把 shape (1,1,3) ➜ (1,3)，然後轉 int
+        x, y, r = np.round(circles[0, 0]).astype(int)
+        centers.append((x, y))
+        print(f"圓心 = ({x}, {y})，半徑 = {r}")
+        # 畫在原圖上
+        cv2.circle(output_img, (x, y), r, (0, 255, 0), 2)   # 外框
+        cv2.circle(output_img, (x, y), 2, (0, 0, 255), 3)   # 圓心
+    else:
+        print("沒找到圓形")
+    cv2.imwrite(f"{output_path_prefix}_detected.png", output_img)
+    return centers, output_img
 
-    
-    return circle_centers, output_img
 
 if __name__ == "__main__":
     # 檢查並創建輸出目錄
-    output_folder = "./calibration/demo/transform"
+    output_folder = "./estimation_1/circle"
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
         print(f"已創建目錄：{output_folder}")
     
     # 基準圖片
-    base_img = cv2.imread("./calibration/demo/flipped/img11.png")
+    base_img = cv2.imread("./estimation_1/img9.png")
     if base_img is None:
         print("無法讀取基準圖片")
         exit()
-    
+  
     # 要處理的樣本圖片列表
     sample_images = [
-        "./calibration/demo/flipped/img7.png",
-        "./calibration/demo/flipped/img8.png",
-        "./calibration/demo/flipped/img9.png",
-        "./calibration/demo/flipped/img10.png"
+        "./estimation_1/img0.png",
+        "./estimation_1/img1.png",
+        "./estimation_1/img2.png",
+        "./estimation_1/img3.png",
+        "./estimation_1/img4.png",
+        "./estimation_1/img5.png",
+        "./estimation_1/img6.png",
+        "./estimation_1/img7.png",
+        "./estimation_1/img8.png",
     ]
     
     # 儲存所有檢測到的圓心座標
     all_circle_centers = []
-    
-    # 載入透視變換矩陣
-    H = np.load(config.PERSPECTIVE_MATRIX_PATH).astype(np.float32)
-    points = np.array(config.POINTS)
     
     # 轉換基準圖片為灰度圖
     base_gray = cv2.cvtColor(base_img, cv2.COLOR_BGR2GRAY)
@@ -138,35 +93,48 @@ if __name__ == "__main__":
         sample_gray = cv2.cvtColor(sample_img, cv2.COLOR_BGR2GRAY)
         diff_img = cv2.absdiff(base_gray, sample_gray)
         
-        # 對差異圖片和彩色圖片進行透視變換
-        warped_diff = apply_perspective(diff_img, points, H)
-        warped_color = apply_perspective(sample_img, points, H)
-        
         # 檢測圓形
-        circle_centers, result_img = detect_circles(warped_diff, warped_color)
+        basename = os.path.splitext(os.path.basename(sample_path))[0]
+        output_path_prefix = os.path.join(output_folder, basename)
+        circle_centers, result_img = detect_circles(diff_img, sample_img, output_path_prefix)
         
         if circle_centers:
             # 將檢測到的圓心座標添加到總列表中
             all_circle_centers.extend(circle_centers)
             print(f"在 {sample_path} 中檢測到 {len(circle_centers)} 個圓形")
+    
+    def order_four(pts):
+        """
+        輸入 4 個 (x, y)；輸出依 左上→右上→左下→右下 排序後的 4 個 (x, y)。
+        """
+        # 先依 y 再依 x 排出「上 2、下 2」
+        pts = sorted(pts, key=lambda p: (p[1], p[0]))
+        top_two    = sorted(pts[:2], key=lambda p: p[0])  # 左上、右上
+        bottom_two = sorted(pts[2:], key=lambda p: p[0])  # 左下、右下
+        return top_two + bottom_two
+    
+    ordered_centers = []
+    for i in range(0, len(all_circle_centers), 4):
+        ordered_centers.extend(order_four(all_circle_centers[i:i+4]))
+
+    all_circle_centers = ordered_centers 
         
-        # 顯示結果
-        cv2.imshow(f"Detected Circles - {os.path.basename(sample_path)}", result_img)
-        cv2.waitKey(0)  # 顯示1秒
-        cv2.destroyAllWindows()
+    #####################################################################################
+    ############################# 寫回 config.py ########################################
+    #####################################################################################
+    if all_circle_centers:
         
-    # 更新 config.py 中的 CALIB_CIRCLES_PTS
-    if all_circle_centers is not None:
+        circles_list = [[round(float(x), 3), round(float(y), 3)] for x, y in all_circle_centers]
         with open('config.py', 'r', encoding='utf-8') as file:
             lines = file.readlines()
         # 檢查是否已存在 CALIB_CIRCLES_PTS
-        for i, line in enumerate(lines):
-            if line.startswith('CALIB_CIRCLES_PTS ='):
+        for i, line in enumerate(lines): 
+            if line.startswith('CALIB_CIRCLES_PTS'):
                 # 使用格式化字符串確保三位小數
-                circles_list = [[round(float(x), 3), round(float(y), 3)] for x, y in all_circle_centers]
-                lines[i] = f'CALIB_CIRCLES_PTS = {circles_list} '
+                lines[i] = f'CALIB_CIRCLES_PTS = {circles_list}\n'
                 break
-    
+        else:
+            lines.append(f'CALIB_CIRCLES_PTS = {circles_list}\n')
         # 寫回文件
         with open('config.py', 'w', encoding='utf-8') as file:
             file.writelines(lines)
