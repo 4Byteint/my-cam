@@ -117,7 +117,9 @@ class PoseEstimation:
         approx = cv2.approxPolyDP(cnt, epsilon, True) # 回傳頂點座標
         # 取得角點座標 (row, column)
         corners = [tuple(pt[0]) for pt in approx]  # 每個 pt 為 [[x, y]]
-        
+        # ****************************************************************** #
+        # *****************************  沒使用到 pca  ********************** #
+        # ****************************************************************** #
         def _find_edge_with_pca(corners):
             edges = []
             num_points = len(corners)
@@ -163,46 +165,30 @@ class PoseEstimation:
             closest_point3 = points_large[sorted_idx[2]]
 
             return closest_point1, closest_point2, closest_point3
-        def _detect_wire_n_connector(pts):
-            pts3 = np.asarray(pts, dtype=float)
-            x_vals = pts3[:, 0]
-            x_sorted_indices = np.argsort(x_vals) # 取出從小到大對應的index
-            middle_index = x_sorted_indices[1] # 取出中間點
-            middle_point = closest_pts[middle_index]
-            print("middle_point: ", middle_point) 
-            end_points = np.delete(closest_pts, middle_index, axis=0)
+        
+        
+        def _detect_contour_middle_pts(corners, center):
+            midpoints = []
+            distances = []
+            for i in range(len(corners)):
+                # 當前邊的起點和終點
+                p1 = np.array(corners[i])
+                p2 = np.array(corners[(i + 1) % len(corners)])  # 取環狀的下一點
+                # 計算中點
+                midpoint = (p1 + p2) // 2
+                midpoints.append(midpoint)
                 
-            # elif pts.y all < center.y: # angle: <-90 or >90
-            #     middle_pts = pts.x is middle and pts.y is the biggest in pts
-            #     end_pts = exclude the middle_pts in pts
-            return end_points
-        def _exclude_middle_point(pts):
-            """
-            排除中心點，回傳左右兩邊點
-            """
-            pts3 = np.asarray(pts, dtype=float)
-            dist_mat = np.linalg.norm(pts3[:, None] - pts3[None, :], axis=-1) # 求兩兩距離矩陣
-            # 最大距離所對應的兩個 index ⇒ 端點
-            i, j = np.unravel_index(np.argmax(dist_mat), dist_mat.shape) # 找出最大距離的索引
-            end_idx = {i, j}
-            mid_idx = list({0, 1, 2} - end_idx)[0]
+                # 計算中點與接頭中心的距離
+                dist = np.linalg.norm(midpoint - np.array(center))
+                distances.append(dist)
+                
+            # 找到距離接頭中心最小的兩個點對應的邊
+            min_dist_idx = np.argmin(distances)
+            corner1 = corners[min_dist_idx]
+            corner2 = corners[(min_dist_idx + 1) % len(corners)]
+            return corner1, corner2
+        two_ends = _detect_contour_middle_pts(corners, self.center)
 
-            end_points = pts3[[i, j]]
-            # middle_point = pts3[mid_idx]
-
-            return end_points
-        
-        
-        closest_pts = _find_edge_with_pca(corners)
-        if closest_pts is None:
-            print("[!] 無法找到最接近的兩個點")
-            return None
-        print("closest_pts: ", closest_pts)
-        two_ends = _detect_wire_n_connector(closest_pts)
-        print("two_ends: ", two_ends)
-        
-        
-        
         # ****************************************************************** #
         # ********************** 僅使用接近center的兩點 ********************** #
         # ****************************************************************** #
