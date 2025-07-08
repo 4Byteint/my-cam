@@ -151,7 +151,7 @@ class PoseEstimation:
 
             points_large = [e['pt1'] for e in group_large] + [e['pt2'] for e in group_large]
             points_large = np.array(points_large)
-            center = np.array(self.center) # tuple to array
+            center = np.array(self.center, dtype=float) # tuple to array
             
             if len(points_large) < 2:
                 raise ValueError("points_large 中的點數不足2個")
@@ -160,13 +160,32 @@ class PoseEstimation:
             sorted_idx = np.argsort(dists)
             closest_point1 = points_large[sorted_idx[0]]
             closest_point2 = points_large[sorted_idx[1]]
+            closest_point3 = points_large[sorted_idx[2]]
 
-            return closest_point1, closest_point2
+            return closest_point1, closest_point2, closest_point3
+        def _exclude_middle_point(pts):
+            """
+            排除中心點，回傳左右兩邊點
+            """
+            pts3 = np.asarray(pts, dtype=float)
+            dist_mat = np.linalg.norm(pts3[:, None] - pts3[None, :], axis=-1) # 求兩兩距離矩陣
+            # 最大距離所對應的兩個 index ⇒ 端點
+            i, j = np.unravel_index(np.argmax(dist_mat), dist_mat.shape) # 找出最大距離的索引
+            end_idx = {i, j}
+            mid_idx = list({0, 1, 2} - end_idx)[0]
+
+            end_points = pts3[[i, j]]
+            # middle_point = pts3[mid_idx]
+
+            return end_points
+        
         
         closest_pts = _find_edge_with_pca(corners)
         if closest_pts is None:
             print("[!] 無法找到最接近的兩個點")
             return None
+        two_ends = _exclude_middle_point(closest_pts)
+        
         
         # ****************************************************************** #
         # ********************** 僅使用接近center的兩點 ********************** #
@@ -185,9 +204,9 @@ class PoseEstimation:
         # ****************************************************************** #
         # ************************ 計算角度 ********************************* #
         # ****************************************************************** #
-        (x1, y1), (x2, y2) = sorted(closest_pts, key=lambda pt: pt[0])  # 依 x 從小到大排序
+        (x1, y1), (x2, y2) = sorted(two_ends, key=lambda pt: pt[0])  # 依 x 從小到大排序
         # 計算並標記中點（黃色）
-        mx, my = (x1 + x2) // 2, (y1 + y2) // 2
+        mx, my = (x1 + x2) / 2, (y1 + y2) / 2
         
         
         
@@ -199,8 +218,8 @@ class PoseEstimation:
         ##########################################################################################
         
         if self.center[1] < my:
-            (x1, y1), (x2, y2) = sorted(closest_pts, key=lambda pt: pt[0], reverse=True)  # 依 x 從小到大排序
-            mx, my = (x1 + x2) // 2, (y1 + y2) // 2
+            (x1, y1), (x2, y2) = sorted(two_ends, key=lambda pt: pt[0], reverse=True)  # 依 x 從小到大排序
+            mx, my = (x1 + x2) / 2, (y1 + y2) / 2
              # 計算連線方向向量：d=(dx,dy)
             dx, dy = x2 - x1, y2 - y1
             # 計算垂線方向向量：p = (dy, -dx) 考慮cv坐標系
@@ -221,23 +240,26 @@ class PoseEstimation:
             elif angle_deg < 0:
                 angle_deg = -180 + angle_deg
         
-        
-        # 計算連線方向向量：d=(dx,dy)
-        dx, dy = x2 - x1, y2 - y1
-        # 計算垂線方向向量：p = (dy, -dx) 考慮cv坐標系
-        p = np.array([dy, -dx], dtype=float)
-        # 正規化
-        norm = np.hypot(p[0], p[1])
-        if norm != 0:
-            p_unit = p / norm
         else:
-            p_unit = p
+        # 計算連線方向向量：d=(dx,dy)
+                dx, dy = x2 - x1, y2 - y1
+                # 計算垂線方向向量：p = (dy, -dx) 考慮cv坐標系
+                p = np.array([dy, -dx], dtype=float)
+                # 正規化
+                norm = np.hypot(p[0], p[1])
+                if norm != 0:
+                    p_unit = p / norm
+                else:
+                    p_unit = p
+                
+                # 計算與 +y 軸的夾角（y 軸為向上，即 (0, -1)）
+                angle_rad = math.atan2(p_unit[0], -p_unit[1])  # 注意是 (x, -y)
+                angle_deg = -math.degrees(angle_rad)
         
-        # 計算與 +y 軸的夾角（y 軸為向上，即 (0, -1)）
-        angle_rad = math.atan2(p_unit[0], -p_unit[1])  # 注意是 (x, -y)
-        angle_deg = -math.degrees(angle_rad)
-        
-        # 儲存角度（你也可以改成回傳）
+        if angle_deg == -180 or angle_deg == 180:
+                angle_deg = 0
+                
+        # 儲存角度
         self.conn_angle_rad = angle_rad
         self.conn_angle_deg = angle_deg
         
@@ -247,14 +269,14 @@ class PoseEstimation:
         cv2.drawContours(conn_bgr, [approx], -1, (0,255,0), 2)
         ## 繪製紅點角點並標註編號
         for (x, y) in corners:
-            cv2.circle(conn_bgr, (x, y), 5, (0,255,0), -1)
+            cv2.circle(conn_bgr, (int(x), int(y)), 5, (0,255,0), -1)
         ## 繪製最接近的兩點為藍點，並畫連線
-        cv2.circle(conn_bgr, (x1, y1), 6, (255, 0, 0), -1)
-        cv2.circle(conn_bgr, (x2, y2), 6, (255, 0, 0), -1)
-        cv2.line(conn_bgr, (x1, y1), (x2, y2), (255, 0, 0), 1)
+        cv2.circle(conn_bgr, (int(x1), int(y1)), 6, (255, 0, 0), -1)
+        cv2.circle(conn_bgr, (int(x2), int(y2)), 6, (255, 0, 0), -1)
+        cv2.line(conn_bgr, (int(x1), int(y1)), (int(x2), int(y2)), (255, 0, 0), 1)
         ## 繪製黃色點為中點
-        cv2.circle(conn_bgr, (mx, my), 6, (0, 0, 255), -1)
-        cv2.putText(conn_bgr, f"M", (mx+5, my-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 1)
+        cv2.circle(conn_bgr, (int(mx), int(my)), 6, (0, 0, 255), -1)
+        cv2.putText(conn_bgr, f"M", (int(mx+5), int(my-5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 1)
         ## 繪製與center相反方向的垂線（長度為10）
         L = 10
         pt1 = (int(mx + p_unit[0] * L), int(my + p_unit[1] * L))
@@ -262,7 +284,7 @@ class PoseEstimation:
         cv2.line(conn_bgr, pt1, pt2, (0, 0, 255), 2)
         ## 在中點旁標註角度
         text = f"{self.conn_angle_deg:.1f}"
-        cv2.putText(conn_bgr, text, (mx-10, my-25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,255), 1)
+        cv2.putText(conn_bgr, text, (int(mx-10), int(my-25)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,255), 1)
         
         return (mx, my), self.conn_angle_deg, conn_bgr # 0/255
               

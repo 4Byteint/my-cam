@@ -155,7 +155,7 @@ def show_prediction_result(cam, model, stop_event, sender_socket):
                             avg_pos_diff = sum(pos_diff_buffer) / len(pos_diff_buffer)
                             avg_angle_diff = sum(angle_diff_buffer) / len(angle_diff_buffer)
 
-                            if avg_pos_diff > 10 or avg_angle_diff > 3:
+                            if avg_pos_diff > 20 or avg_angle_diff > 3:
                                 is_update = True
                         else:
                             is_update = True
@@ -230,7 +230,7 @@ def main():
     infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event, sender_socket), daemon=True)
     # infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event), daemon=True)
     infer_thread.start()
-    base_count = 1
+    base_count = 16
     try:
         while True:
             frame = cam.get_latest_frame()
