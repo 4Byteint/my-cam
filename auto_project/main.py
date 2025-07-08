@@ -139,63 +139,32 @@ def show_prediction_result(cam, model, stop_event, sender_socket):
                 estimator = PoseEstimation(wire_mask, connector_mask)
                 if estimator.is_success():
                     (pos, angle, conn_img, wire_img) = estimator.result
-                    
-                    ###################### sliding window ############################
-                    dx, dy, d_angle = 0, 0, 0
-                    is_update = False
-                    
-                    if last_pos is not None and last_angle is not None:
-                        dx = pos[0] - last_pos[0]
-                        dy = pos[1] - last_pos[1]
-                        d_angle = angle - last_angle
-
-                        pos_diff_buffer.append((dx**2 + dy**2)**0.5)
-                        angle_diff_buffer.append(abs(d_angle))
-                        if len(pos_diff_buffer) == pos_diff_buffer.maxlen:
-                            avg_pos_diff = sum(pos_diff_buffer) / len(pos_diff_buffer)
-                            avg_angle_diff = sum(angle_diff_buffer) / len(angle_diff_buffer)
-
-                            if avg_pos_diff > 20 or avg_angle_diff > 3:
-                                is_update = True
-                        else:
-                            is_update = True
-                    else:
-                        is_update = True # first time, default update
-                    ##################################################################
-                    if is_update:
-                        last_pos = pos
-                        last_angle = angle
-                        success_msg = f"角度為 {angle:.2f}°，中點為 ({pos[0]}, {pos[1]})"
-                        status_manager.update_and_print_status('pose_estimation', 'success', success_msg)
-                        world_pos = image_to_world(pos, H_homo)
-                        last_status = True
-                    
-                        # socket send
-                        try:
-                            message = f"{world_pos[0]:.2f},{world_pos[1]:.2f},{angle:.2f}\n"
-                            sender_socket.sendall(message.encode('utf-8'))
-                            print(f"send message success. {message}")
-                        except Exception as e:
-                            print(f"[!] send message failed. {e}")
+                    success_msg = f"角度為 {angle:.2f}°，中點為 ({pos[0]}, {pos[1]})"
+                    status_manager.update_and_print_status('pose_estimation', 'success', success_msg)
+                    world_pos = image_to_world(pos, H_homo)
+                    # socket send
+                    try:
+                        message = f"{world_pos[0]:.2f},{world_pos[1]:.2f},{angle:.2f}\n"
+                        sender_socket.sendall(message.encode('utf-8'))
+                        print(f"send message success. {message}")
+                    except Exception as e:
+                        print(f"[!] send message failed. {e}")
                             
                 #################################################################################
                 ############################ pose estimation failed #############################
                 #################################################################################
                 else:
-                    try:
-                        if last_status != False:
-                            message = "nan,nan,nan\n"
-                            sender_socket.sendall(message.encode('utf-8'))
-                            last_status = False
-                            print(f"send nan message success. {message}")
-                    except Exception as e:
-                        print(f"[!] send nan message failed. {e}")
-                    
                     status_manager.update_and_print_status(
                         'pose_estimation', 
                         'failed', 
                         fail_msg="[!] pose estimation failed."
                     )
+                
+                    message = "0,0,0\n"
+                    sender_socket.sendall(message.encode('utf-8'))
+                           
+                    
+                    
                 #################################################################################
 
             # 儲存 wire_mask 和 connector_mask
@@ -203,13 +172,18 @@ def show_prediction_result(cam, model, stop_event, sender_socket):
                 shared_mask = mask_display 
                 shared_wire_img = wire_img
                 shared_conn_img = conn_img
-                
+        
         except Exception as e:
             status_manager.update_and_print_status(
                 'inference', 
                 'failed', 
                 fail_msg=f"[!] infer failed. {e}"
             )
+            
+            message = "0,0,0\n"
+            sender_socket.sendall(message.encode('utf-8'))
+           
+                
 
 def main():
     ##############################################################################################
@@ -230,7 +204,7 @@ def main():
     infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event, sender_socket), daemon=True)
     # infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event), daemon=True)
     infer_thread.start()
-    base_count = 16
+    base_count = 31
     try:
         while True:
             frame = cam.get_latest_frame()

@@ -163,6 +163,19 @@ class PoseEstimation:
             closest_point3 = points_large[sorted_idx[2]]
 
             return closest_point1, closest_point2, closest_point3
+        def _detect_wire_n_connector(pts):
+            pts3 = np.asarray(pts, dtype=float)
+            x_vals = pts3[:, 0]
+            x_sorted_indices = np.argsort(x_vals) # 取出從小到大對應的index
+            middle_index = x_sorted_indices[1] # 取出中間點
+            middle_point = closest_pts[middle_index]
+            print("middle_point: ", middle_point) 
+            end_points = np.delete(closest_pts, middle_index, axis=0)
+                
+            # elif pts.y all < center.y: # angle: <-90 or >90
+            #     middle_pts = pts.x is middle and pts.y is the biggest in pts
+            #     end_pts = exclude the middle_pts in pts
+            return end_points
         def _exclude_middle_point(pts):
             """
             排除中心點，回傳左右兩邊點
@@ -184,7 +197,10 @@ class PoseEstimation:
         if closest_pts is None:
             print("[!] 無法找到最接近的兩個點")
             return None
-        two_ends = _exclude_middle_point(closest_pts)
+        print("closest_pts: ", closest_pts)
+        two_ends = _detect_wire_n_connector(closest_pts)
+        print("two_ends: ", two_ends)
+        
         
         
         # ****************************************************************** #
