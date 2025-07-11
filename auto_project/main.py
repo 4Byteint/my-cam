@@ -3,6 +3,7 @@ from picamera2 import Picamera2, Preview
 import cv2
 import os
 import time, board, threading, neopixel
+import sys, datetime
 
 from utils import draw_fps, apply_perspective_transform, image_to_world
 from camera_module import Camera
@@ -93,25 +94,30 @@ def set_leds_task():
         pixels[i] = COLOR_RED
 
     pixels.show()
-# socket sender
+
+# 送成功 → 傳回 True；失敗 → raise、讓外層接
+def safe_send(sock: socket.socket, msg: str):
+    try:
+        sock.sendall(msg.encode("utf-8"))
+        return True
+    except (BrokenPipeError, ConnectionResetError) as e:
+        raise RuntimeError(f"socket send failed: {e}")   # 讓呼叫端決定怎麼收尾
+
 def create_socket_sender(host='127.0.0.1', port=5005):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((host, port))
-    return s
+    try:
+        s.connect((host, port))        # server 沒開會丟 ConnectionRefusedError
+        return s
+    except Exception as e:
+        s.close()
+        raise RuntimeError(f"socket connect failed: {e}")
 
 
-
-def show_prediction_result(cam, model, stop_event, sender_socket):
+def show_prediction_result(cam, model, stop_event, sock):
     global shared_mask
     global shared_wire_img
     global shared_conn_img
     estimator = None
-    pos_diff_buffer = deque(maxlen=5)
-    angle_diff_buffer = deque(maxlen=5)
-    
-    last_pos = None
-    last_angle = None
-    last_status = None
     
     while not stop_event.is_set():
         try:
@@ -130,25 +136,27 @@ def show_prediction_result(cam, model, stop_event, sender_socket):
             # 更新推理狀態為成功
             status_manager.update_and_print_status('inference', 'success')
             
-            conn_img = None
-            wire_img = None
             #################################################################################
             ############################ pose estimation success ############################
             #################################################################################
             if wire_mask is not None and connector_mask is not None:
                 estimator = PoseEstimation(wire_mask, connector_mask)
                 if estimator.is_success():
-                    (pos, angle, conn_img, wire_img) = estimator.result
+                    (pos, angle) = estimator.result
+                    
                     success_msg = f"角度為 {angle:.2f}°，中點為 ({pos[0]}, {pos[1]})"
                     status_manager.update_and_print_status('pose_estimation', 'success', success_msg)
                     world_pos = image_to_world(pos, H_homo)
+                    
+                    
                     # socket send
                     try:
-                        message = f"{world_pos[0]:.2f},{world_pos[1]:.2f},{angle:.2f}\n"
-                        sender_socket.sendall(message.encode('utf-8'))
-                        print(f"send message success. {message}")
-                    except Exception as e:
-                        print(f"[!] send message failed. {e}")
+                        safe_send(sock, f"{world_pos[0]:.2f},{world_pos[1]:.2f},{angle:.2f}\n")
+                       
+                    except RuntimeError as e:
+                        print(f"[!] server ending, {e}")
+                        stop_event.set()
+                        break
                             
                 #################################################################################
                 ############################ pose estimation failed #############################
@@ -159,20 +167,24 @@ def show_prediction_result(cam, model, stop_event, sender_socket):
                         'failed', 
                         fail_msg="[!] pose estimation failed."
                     )
-                
+                    # socket send
                     message = "0,0,0\n"
-                    sender_socket.sendall(message.encode('utf-8'))
-                           
-                    
-                    
-                #################################################################################
+                    try:
+                        safe_send(sock, message)
+                    except RuntimeError as e:
+                        print(f"[!] server ending, {e}")
+                        stop_event.set()
+                        break
 
+            #################################################################################
             # 儲存 wire_mask 和 connector_mask
+            conn_img = estimator.conn_bgr
+            wire_img = estimator.wire_bgr
             with mask_lock:
                 shared_mask = mask_display 
                 shared_wire_img = wire_img
                 shared_conn_img = conn_img
-        
+            
         except Exception as e:
             status_manager.update_and_print_status(
                 'inference', 
@@ -181,32 +193,49 @@ def show_prediction_result(cam, model, stop_event, sender_socket):
             )
             
             message = "0,0,0\n"
-            sender_socket.sendall(message.encode('utf-8'))
+            try:
+                safe_send(sock, message)
+            except RuntimeError as e:
+                print(f"[!] server ending, {e}")
+                stop_event.set()
+                break
            
                 
 
 def main():
-    ##############################################################################################
-   
-    ##############################################################################################`
+    # **************************************************************************
+    # ****************************** save raw data **************************
+    # **************************************************************************
+    run_timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    session_dir   = os.path.join("raw_data", run_timestamp)
+    sub_conn      = os.path.join(session_dir, "conn")
+    sub_wire      = os.path.join(session_dir, "wire")
+    sub_all       = os.path.join(session_dir, "all")
+    for p in (session_dir, sub_conn, sub_wire, sub_all):
+        os.makedirs(p, exist_ok=True)      # 若已存在不會例外
     # camera setup 
     ##############################################################################################
     cam = Camera(use_undistort=True)
     cam.start()
     set_leds_task()
     stop_event = threading.Event()
-    sender_socket = create_socket_sender()
+    try:
+        sender_socket = create_socket_sender()
+    except RuntimeError as e:
+        print(e); cam.close(); return
     # 初始化模型
     # model = TFLiteModel(config.TFLITE_MODEL_NAME)
     model = UNetSegmenter(config.PTH_MODEL_PATH)
     ##############################################################################################
     
-    infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event, sender_socket), daemon=True)
+    infer_thread = threading.Thread(target=show_prediction_result, 
+                                    args=(cam, model, stop_event, sender_socket), 
+                                    daemon=True)
     # infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event), daemon=True)
     infer_thread.start()
     base_count = 31
     try:
-        while True:
+        while not stop_event.is_set():
             frame = cam.get_latest_frame()
             if frame is None:
                 continue
@@ -221,11 +250,17 @@ def main():
                     predict_mask = cv2.cvtColor(shared_mask, cv2.COLOR_RGB2BGR)  # 轉換為 BGR 格式以便顯示
                     
                     cv2.imshow("Mask", predict_mask)
-                    if shared_wire_img is not None and shared_conn_img is not None:
-                        cv2.imshow("wire Mask", shared_wire_img)
-                        cv2.imshow("conn Mask", shared_conn_img)
-                    else:
-                        status_manager.update_and_print_status('wire_conn_img', 'missing', fail_msg="[!] 沒有回傳 wire_img 或 conn_img")
+                    cv2.imshow("wire Mask", shared_wire_img)
+                    cv2.imshow("conn Mask", shared_conn_img)
+                    
+                    # save raw data
+                    timestamp = datetime.datetime.now().strftime("%H%M%S")
+                    cv2.imwrite(os.path.join(sub_conn, f"{timestamp}_conn.png"), shared_conn_img)
+                    cv2.imwrite(os.path.join(sub_wire, f"{timestamp}_wire.png"), shared_wire_img)
+                    cv2.imwrite(os.path.join(sub_all , f"{timestamp}_all.png"), cv2.cvtColor(shared_mask, cv2.COLOR_RGB2BGR))
+                
+                else:
+                    status_manager.update_and_print_status('wire_conn_img', 'missing', fail_msg="[!] 沒有回傳 shared_mask")
                         
             key = cv2.waitKey(1)
             if key == 27:

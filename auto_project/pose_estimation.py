@@ -20,8 +20,6 @@ class PoseEstimation:
         self.conn_bgr = None
         self.wire_bgr = None
         self.mx_my = None
-        self.major_axis = None
-        self.minor_axis = None
         self.result = self._process()
         
         
@@ -41,16 +39,14 @@ class PoseEstimation:
         ###################################################################################
         ###################################有線############################################
         ###################################################################################
-        if self._find_center_from_wire():
-            conn_result = self._analyze_connector()
-            if conn_result is None:
-                return None
-            else:
-                self.mx_my, self.conn_angle_deg, self.conn_bgr = conn_result
-                self.wire_bgr = self._draw_results()
-                return self.mx_my, self.conn_angle_deg, self.conn_bgr, self.wire_bgr
+        self._find_center_from_wire()
+        conn_result = self._analyze_connector()
+        if conn_result:
+            self.mx_my, self.conn_angle_deg = conn_result
+            return self.mx_my, self.conn_angle_deg
         else:
             return None
+       
         ###################################################################################
         ############################不檢查是否有線##########################################
         ###################################################################################
@@ -66,44 +62,58 @@ class PoseEstimation:
         return self.result is not None
     
     def _find_center_from_wire(self):
+        self.wire_bgr = cv2.cvtColor(self.wire_mask * 255, cv2.COLOR_GRAY2BGR)
         area = np.count_nonzero(self.wire_mask == 1)
-        print(f"wire area: {area}")
         if area < self.min_wire_area:
-            print(f"[!] wire 白色區域面積小於 {self.min_wire_area} 像素，不顯示圖像")
+            print(f"[!] wire 白色區域面積小於 {self.min_wire_area} 像素")
             return False
         rows, cols = np.where(self.wire_mask == 1)   # 取得所有 white pixel 的 (row, col) 座標
         r_centroid = rows.mean()
         c_centroid = cols.mean()
         self.center = (int(c_centroid), int(r_centroid))
         
-        # ************** 使用 PCA 找中心點 **************
-        points = np.column_stack((cols, rows))  # cols是X，rows是Y
-        pca_center = (c_centroid, r_centroid)
-        pca_centered = points - pca_center
+        # # ************** 使用 PCA 找中心點 **************
+        # points = np.column_stack((cols, rows))  # cols是X，rows是Y
+        # pca_center = (c_centroid, r_centroid)
+        # pca_centered = points - pca_center
 
-        # 3. 協方差矩陣
-        cov = np.cov(pca_centered, rowvar=False)
+        # # 3. 協方差矩陣
+        # cov = np.cov(pca_centered, rowvar=False)
 
-        # 4. 特徵分解
-        eigenvalues, eigenvectors = np.linalg.eigh(cov)  # 適用對稱矩陣
+        # # 4. 特徵分解
+        # eigenvalues, eigenvectors = np.linalg.eigh(cov)  # 適用對稱矩陣
 
-        # 5. 依特徵值排序（大→小）
-        order = eigenvalues.argsort()[::-1]
-        eigenvalues = eigenvalues[order]
-        eigenvectors = eigenvectors[:, order]
+        # # 5. 依特徵值排序（大→小）
+        # order = eigenvalues.argsort()[::-1]
+        # eigenvalues = eigenvalues[order]
+        # eigenvectors = eigenvectors[:, order]
 
-        # 6. 主要與次要方向
-        # eigenvectors 是2*2矩陣
-        self.major_axis = eigenvectors[:, 0]  # 主方向 第一個col 
-        self.minor_axis = eigenvectors[:, 1]  # 次方向 第二個col
+        # # 6. 主要與次要方向
+        # # eigenvectors 是2*2矩陣
+        # self.major_axis = eigenvectors[:, 0]  # 主方向 第一個col 
+        # self.minor_axis = eigenvectors[:, 1]  # 次方向 第二個col
         
+        if self.center:
+            cv2.circle(self.wire_bgr, self.center, radius=1, color=(0, 0, 255), thickness=2)
+            # 在旁邊標註座標（value=255）
+            cv2.putText(
+                self.wire_bgr,
+                f"C({self.center[0]},{self.center[1]})",
+                (self.center[0]+10, self.center[1]-10),
+                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                fontScale=0.4,
+                color=(0, 0, 255),
+                thickness=1
+            )
         return True
     
     
     def _analyze_connector(self):
+        self.conn_bgr = cv2.cvtColor(self.conn_mask * 255, cv2.COLOR_GRAY2BGR) 
         if self.center is None:
             print("[!] 未找到 wire 的中心點")
             return None
+            
         # 找輪廓
         contours, _ = cv2.findContours(self.conn_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         cnt = max(contours, key=cv2.contourArea)
@@ -111,7 +121,7 @@ class PoseEstimation:
         print(f"connecter area: {area}")
         if area < self.min_conn_area:
             print(f"[!] connector 區域面積小於 {self.min_conn_area} 像素，無法分析")
-            return None        
+            return None
         
         epsilon = 0.05 * cv2.arcLength(cnt, True)
         approx = cv2.approxPolyDP(cnt, epsilon, True) # 回傳頂點座標
@@ -267,28 +277,28 @@ class PoseEstimation:
         
         # 畫圖
         ## 繪製輪廓多邊形（綠線）
-        conn_bgr = cv2.cvtColor(self.conn_mask * 255, cv2.COLOR_GRAY2BGR) 
-        cv2.drawContours(conn_bgr, [approx], -1, (0,255,0), 2)
+        
+        cv2.drawContours(self.conn_bgr, [approx], -1, (0,255,0), 2)
         ## 繪製紅點角點並標註編號
         for (x, y) in corners:
-            cv2.circle(conn_bgr, (int(x), int(y)), 5, (0,255,0), -1)
+            cv2.circle(self.conn_bgr, (int(x), int(y)), 5, (0,255,0), -1)
         ## 繪製最接近的兩點為藍點，並畫連線
-        cv2.circle(conn_bgr, (int(x1), int(y1)), 6, (255, 0, 0), -1)
-        cv2.circle(conn_bgr, (int(x2), int(y2)), 6, (255, 0, 0), -1)
-        cv2.line(conn_bgr, (int(x1), int(y1)), (int(x2), int(y2)), (255, 0, 0), 1)
+        cv2.circle(self.conn_bgr, (int(x1), int(y1)), 6, (255, 0, 0), -1)
+        cv2.circle(self.conn_bgr, (int(x2), int(y2)), 6, (255, 0, 0), -1)
+        cv2.line(self.conn_bgr, (int(x1), int(y1)), (int(x2), int(y2)), (255, 0, 0), 1)
         ## 繪製黃色點為中點
-        cv2.circle(conn_bgr, (int(mx), int(my)), 6, (0, 0, 255), -1)
-        cv2.putText(conn_bgr, f"M", (int(mx+5), int(my-5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 1)
+        cv2.circle(self.conn_bgr, (int(mx), int(my)), 6, (0, 0, 255), -1)
+        cv2.putText(self.conn_bgr, f"M", (int(mx+5), int(my-5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 1)
         ## 繪製與center相反方向的垂線（長度為10）
         L = 10
         pt1 = (int(mx + p_unit[0] * L), int(my + p_unit[1] * L))
         pt2 = (int(mx - p_unit[0] * L), int(my - p_unit[1] * L))
-        cv2.line(conn_bgr, pt1, pt2, (0, 0, 255), 2)
+        cv2.line(self.conn_bgr, pt1, pt2, (0, 0, 255), 2)
         ## 在中點旁標註角度
         text = f"{self.conn_angle_deg:.1f}"
-        cv2.putText(conn_bgr, text, (int(mx-10), int(my-25)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,255), 1)
+        cv2.putText(self.conn_bgr, text, (int(mx-10), int(my-25)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,255), 1)
         
-        return (mx, my), self.conn_angle_deg, conn_bgr # 0/255
+        return (mx, my), self.conn_angle_deg # 0/255
               
     def only_conn_pose(self):
         """
@@ -400,12 +410,12 @@ class PoseEstimation:
         return (mx, my), self.conn_angle_deg, conn_bgr # 0/255
                  
     def _draw_results(self):
-        wire_bgr = cv2.cvtColor(self.wire_mask * 255, cv2.COLOR_GRAY2BGR)
+        self.wire_bgr = cv2.cvtColor(self.wire_mask * 255, cv2.COLOR_GRAY2BGR)
         if self.center:
-            cv2.circle(wire_bgr, self.center, radius=1, color=(0, 0, 255), thickness=2)
+            cv2.circle(self.wire_bgr, self.center, radius=1, color=(0, 0, 255), thickness=2)
             # 在旁邊標註座標（value=255）
             cv2.putText(
-                wire_bgr,
+                self.wire_bgr,
                 f"C({self.center[0]},{self.center[1]})",
                 (self.center[0]+10, self.center[1]-10),
                 fontFace=cv2.FONT_HERSHEY_SIMPLEX,
@@ -413,22 +423,21 @@ class PoseEstimation:
                 color=(0, 0, 255),
                 thickness=1
             )
-            
-            pt1 = self.center
-            pt2 = (
-                int(self.center[0] + self.major_axis[0] * 100),
-                int(self.center[1] + self.major_axis[1] * 100)
-            )
-            cv2.line(wire_bgr, pt1, pt2, (0, 0, 255), 2) # red
+            ### pca 
+            # pt1 = self.center
+            # pt2 = (
+            #     int(self.center[0] + self.major_axis[0] * 100),
+            #     int(self.center[1] + self.major_axis[1] * 100)
+            # )
+            # cv2.line(self.wire_bgr, pt1, pt2, (0, 0, 255), 2) # red
 
-            # 次方向線
-            pt3 = (
-                int(self.center[0] + self.minor_axis[0] * 100),
-                int(self.center[1] + self.minor_axis[1] * 100)
-            )
-            cv2.line(wire_bgr, pt1, pt3, (0, 255, 0), 2) # green
+            # # 次方向線
+            # pt3 = (
+            #     int(self.center[0] + self.minor_axis[0] * 100),
+            #     int(self.center[1] + self.minor_axis[1] * 100)
+            # )
+            # cv2.line(self.wire_bgr, pt1, pt3, (0, 255, 0), 2) # green
 
-        return wire_bgr # 0/255
         
 ########################################################
 def main():
