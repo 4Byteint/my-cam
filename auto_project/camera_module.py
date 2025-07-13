@@ -1,6 +1,6 @@
 import time
 from picamera2 import Picamera2
-import config 
+import config
 import threading
 import numpy as np
 import cv2
@@ -8,7 +8,8 @@ import cv2
 class Camera:
 	def __init__(self, use_undistort=False):
 		self.picam2 = Picamera2()
-		self.config = self.picam2.create_preview_configuration(main={"size": config.RESOLUTION})
+		# preview功能給需要用gui的時機
+		self.config = self.picam2.create_still_configuration(main={"size": config.RESOLUTION})
 		self.picam2.configure(self.config)
 		self.picam2.set_controls({
             "AfMode": config.AF_MODE,

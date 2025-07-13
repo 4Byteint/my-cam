@@ -1,7 +1,7 @@
 # config.py
 # picam2 setup
 RESOLUTION = (640, 480)
-VIDEO_FORMAT = "YUV420"
+VIDEO_FORMAT = "RGB888"
 AF_MODE = 0
 LENS_POSITION = 1.0
 AWB_ENABLE = False

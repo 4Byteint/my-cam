@@ -141,7 +141,9 @@ def show_prediction_result(cam, model, stop_event, sock):
             #################################################################################
             if wire_mask is not None and connector_mask is not None:
                 estimator = PoseEstimation(wire_mask, connector_mask)
+                print("success? ", estimator.is_success())
                 if estimator.is_success():
+                    # print("[*] pose estimation success.")
                     (pos, angle) = estimator.result
                     
                     success_msg = f"角度為 {angle:.2f}°，中點為 ({pos[0]}, {pos[1]})"
@@ -244,20 +246,19 @@ def main():
             # fps = cam.get_fps()
             # frame_with_fps = draw_fps(frame, fps)
             # cv2.imshow("Camera View", frame_with_fps)
-            cv2.imshow("Camera View", frame)
+            # cv2.imshow("Camera View", frame)
             with mask_lock:
                 if shared_mask is not None:
                     predict_mask = cv2.cvtColor(shared_mask, cv2.COLOR_RGB2BGR)  # 轉換為 BGR 格式以便顯示
-                    
+                    # ************************************* GUI ************************************ #
                     cv2.imshow("Mask", predict_mask)
-                    cv2.imshow("wire Mask", shared_wire_img)
-                    cv2.imshow("conn Mask", shared_conn_img)
-                    
-                    # save raw data
+                    # cv2.imshow("wire Mask", shared_wire_img)
+                    # cv2.imshow("conn Mask", shared_conn_img)
+                    # ******************************** save raw data ******************************* #
                     timestamp = datetime.datetime.now().strftime("%H%M%S")
                     cv2.imwrite(os.path.join(sub_conn, f"{timestamp}_conn.png"), shared_conn_img)
                     cv2.imwrite(os.path.join(sub_wire, f"{timestamp}_wire.png"), shared_wire_img)
-                    cv2.imwrite(os.path.join(sub_all , f"{timestamp}_all.png"), cv2.cvtColor(shared_mask, cv2.COLOR_RGB2BGR))
+                    cv2.imwrite(os.path.join(sub_all , f"{timestamp}_all.png"), predict_mask)
                 
                 else:
                     status_manager.update_and_print_status('wire_conn_img', 'missing', fail_msg="[!] 沒有回傳 shared_mask")

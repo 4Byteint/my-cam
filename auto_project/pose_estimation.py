@@ -17,12 +17,13 @@ class PoseEstimation:
         self.conn_corners = None
         self.conn_angle_deg = None
         self.conn_angle_rad = None
-        self.conn_bgr = None
-        self.wire_bgr = None
+        self.conn_bgr = cv2.cvtColor(self.conn_mask * 255, cv2.COLOR_GRAY2BGR) 
+        self.wire_bgr = cv2.cvtColor(self.wire_mask * 255, cv2.COLOR_GRAY2BGR)
         self.mx_my = None
         self.result = self._process()
         
-        
+ 
+      
     def _auto_binarize(self, img, threshold=127):
         if img is None:
             return None
@@ -31,7 +32,6 @@ class PoseEstimation:
             return binary.astype(np.uint8)
         return img
 
-
     def _process(self):
         if self.wire_mask is None or self.conn_mask is None:
             print("[!] wire_mask 或 conn_mask 未提供")
@@ -39,11 +39,13 @@ class PoseEstimation:
         ###################################################################################
         ###################################有線############################################
         ###################################################################################
-        self._find_center_from_wire()
-        conn_result = self._analyze_connector()
-        if conn_result:
-            self.mx_my, self.conn_angle_deg = conn_result
-            return self.mx_my, self.conn_angle_deg
+        if self._find_center_from_wire():
+            conn_result = self._analyze_connector()
+            if conn_result:
+                self.result = conn_result
+                return self.result 
+            else:
+                return None
         else:
             return None
        
@@ -59,10 +61,11 @@ class PoseEstimation:
         ###################################################################################
  
     def is_success(self):
+        # print("self.result: " , self.result)
         return self.result is not None
     
     def _find_center_from_wire(self):
-        self.wire_bgr = cv2.cvtColor(self.wire_mask * 255, cv2.COLOR_GRAY2BGR)
+       
         area = np.count_nonzero(self.wire_mask == 1)
         if area < self.min_wire_area:
             print(f"[!] wire 白色區域面積小於 {self.min_wire_area} 像素")
@@ -109,7 +112,7 @@ class PoseEstimation:
     
     
     def _analyze_connector(self):
-        self.conn_bgr = cv2.cvtColor(self.conn_mask * 255, cv2.COLOR_GRAY2BGR) 
+     
         if self.center is None:
             print("[!] 未找到 wire 的中心點")
             return None
