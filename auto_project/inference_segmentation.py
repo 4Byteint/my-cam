@@ -1,6 +1,6 @@
 import os
 import argparse
-
+from glob import glob
 import numpy as np
 import torch
 import torch.nn as nn
@@ -13,11 +13,11 @@ import time
 import cv2
 import config
 from pose_estimation import PoseEstimation
-
+from utils import draw_fps, apply_perspective_transform
 class UNetSegmenter:
     def __init__(self, model_path):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"使用设备: {self.device}")
+        print(f"使用設備: {self.device}")
         self.model = UNet(in_channels=3, out_channels=3).to(self.device)
         self.model.load_state_dict(torch.load(model_path, map_location=self.device))
         self.transform = T.Compose([
@@ -51,7 +51,8 @@ class UNetSegmenter:
                 pred_mask = torch.argmax(output, dim=1).squeeze().cpu().numpy()
             
             end_time = time.time()
-            print(f"推論完成, 耗時: {end_time - start_time:.2f}秒")
+            print(f"推論完成")
+            # print(f"推論完成, 耗時: {end_time - start_time:.2f}秒")
             
             # === 建立二值圖（OpenCV 用） ===
             wire_mask = ((pred_mask == 1).astype(np.uint8)) 
@@ -83,7 +84,24 @@ class UNetSegmenter:
     
 if __name__ == "__main__":
     model = UNetSegmenter(config.PTH_MODEL_PATH)
-    img_path = "./dataset/experiment/img7.png"
-    frame = cv2.imread(img_path)
-    all_color, wire_mask, connector_mask = model.predict(frame, original_filename=img_path, save=True, output_dir="./dataset/experiment/predict")
+    input_dir = "./dataset/experiment/base"
+    output_dir = "./dataset/experiment/base/predict"
+    img_paths = glob(os.path.join(input_dir, "*.png"))
+    for img_path in img_paths:
+        # 讀取圖片
+        frame = cv2.imread(img_path)
+        if frame is None:
+            print(f"⚠ 無法讀取圖片: {img_path}")
+            continue
+
+        # 透視轉換
+        pic = apply_perspective_transform(frame)
+
+        # 預測並儲存結果
+        all_color, wire_mask, connector_mask = model.predict(
+            pic,
+            original_filename=os.path.basename(img_path),  # 儲存時用檔名
+            save=True,
+            output_dir=output_dir
+        )
    

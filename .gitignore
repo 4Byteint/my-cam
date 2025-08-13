@@ -9,6 +9,9 @@ ROS_workspace/handsystem/ros2_robot_ws/log/
 # ROS 2 workspace
 ROS_workspace/handsystem/.vscode/
 
+# raw_data
+auto_project/vision_socket_data/
+auto_project/raw_data/
 
 # Python cache
 __pycache__/

@@ -3,8 +3,11 @@ from picamera2 import Picamera2, Preview
 import cv2
 import os
 import time, board, threading, neopixel
-import sys, datetime
+import sys
+import logging
 
+import datetime
+import os
 from utils import draw_fps, apply_perspective_transform, image_to_world
 from camera_module import Camera
 from tflite_segmentation import TFLiteModel
@@ -46,7 +49,8 @@ status_manager = StatusManager()
 shared_mask = None
 shared_wire_img = None
 shared_conn_img = None
-
+shared_raw_img = None 
+shared_braw_img = None
 ##########################################################################
 mask_lock = threading.Lock()
 ############################## led setup #################################
@@ -99,6 +103,7 @@ def set_leds_task():
 def safe_send(sock: socket.socket, msg: str):
     try:
         sock.sendall(msg.encode("utf-8"))
+        logging.info(f"[socket send] {msg}")
         return True
     except (BrokenPipeError, ConnectionResetError) as e:
         raise RuntimeError(f"socket send failed: {e}")   # 讓呼叫端決定怎麼收尾
@@ -113,10 +118,12 @@ def create_socket_sender(host='127.0.0.1', port=5005):
         raise RuntimeError(f"socket connect failed: {e}")
 
 
-def show_prediction_result(cam, model, stop_event, sock):
+def show_prediction_result(cam, model, stop_event): #sock
     global shared_mask
     global shared_wire_img
     global shared_conn_img
+    global shared_raw_img
+    global shared_braw_img
     estimator = None
     
     while not stop_event.is_set():
@@ -124,6 +131,7 @@ def show_prediction_result(cam, model, stop_event, sock):
             frame = cam.get_latest_frame()
             if frame is None:
                 continue
+            shared_braw_img = frame.copy()  # 儲存原始影像以便後續使用
             frame = apply_perspective_transform(frame)
             ################################diff infer#################################################
             # diff_img = cv2.absdiff(frame, base_img)
@@ -144,21 +152,21 @@ def show_prediction_result(cam, model, stop_event, sock):
                 print("success? ", estimator.is_success())
                 if estimator.is_success():
                     # print("[*] pose estimation success.")
-                    (pos, angle) = estimator.result
-                    
-                    success_msg = f"角度為 {angle:.2f}°，中點為 ({pos[0]}, {pos[1]})"
+                    pos, angle = estimator.result
+                    rounded_pos = tuple(round(x) for x in pos)
+                    success_msg = f"角度為 {angle:.2f}°，中點為 ({rounded_pos[0]}, {rounded_pos[1]})"
                     status_manager.update_and_print_status('pose_estimation', 'success', success_msg)
-                    world_pos = image_to_world(pos, H_homo)
+                    world_pos = image_to_world(rounded_pos, H_homo)
                     
                     
                     # socket send
-                    try:
-                        safe_send(sock, f"{world_pos[0]:.2f},{world_pos[1]:.2f},{angle:.2f}\n")
-                       
-                    except RuntimeError as e:
-                        print(f"[!] server ending, {e}")
-                        stop_event.set()
-                        break
+                    # try:
+                    #     safe_send(sock, f"{world_pos[0]:.2f},{world_pos[1]:.2f},{angle:.2f}\n")
+                        
+                    # except RuntimeError as e:
+                    #     print(f"[!] server ending, {e}")
+                    #     stop_event.set()
+                    #     break
                             
                 #################################################################################
                 ############################ pose estimation failed #############################
@@ -170,13 +178,13 @@ def show_prediction_result(cam, model, stop_event, sock):
                         fail_msg="[!] pose estimation failed."
                     )
                     # socket send
-                    message = "0,0,0\n"
-                    try:
-                        safe_send(sock, message)
-                    except RuntimeError as e:
-                        print(f"[!] server ending, {e}")
-                        stop_event.set()
-                        break
+                    # message = "0,0,0\n"
+                    # try:
+                    #     safe_send(sock, message)
+                    # except RuntimeError as e:
+                    #     print(f"[!] server ending, {e}")
+                    #     stop_event.set()
+                    #     break
 
             #################################################################################
             # 儲存 wire_mask 和 connector_mask
@@ -186,6 +194,8 @@ def show_prediction_result(cam, model, stop_event, sock):
                 shared_mask = mask_display 
                 shared_wire_img = wire_img
                 shared_conn_img = conn_img
+                shared_raw_img = frame.copy()  # 儲存原始影像以便後續使用
+                
             
         except Exception as e:
             status_manager.update_and_print_status(
@@ -195,12 +205,13 @@ def show_prediction_result(cam, model, stop_event, sock):
             )
             
             message = "0,0,0\n"
-            try:
-                safe_send(sock, message)
-            except RuntimeError as e:
-                print(f"[!] server ending, {e}")
-                stop_event.set()
-                break
+            # socket send
+            # try:
+            #     safe_send(sock, message)
+            # except RuntimeError as e:
+            #     print(f"[!] server ending, {e}")
+            #     stop_event.set()
+            #     break
            
                 
 
@@ -208,12 +219,13 @@ def main():
     # **************************************************************************
     # ****************************** save raw data **************************
     # **************************************************************************
-    run_timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    session_dir   = os.path.join("raw_data", run_timestamp)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    session_dir   = os.path.join("raw_data", timestamp)
+    sub_raw       = os.path.join(session_dir, "raw")
     sub_conn      = os.path.join(session_dir, "conn")
     sub_wire      = os.path.join(session_dir, "wire")
     sub_all       = os.path.join(session_dir, "all")
-    for p in (session_dir, sub_conn, sub_wire, sub_all):
+    for p in (session_dir, sub_raw, sub_conn, sub_wire, sub_all):
         os.makedirs(p, exist_ok=True)      # 若已存在不會例外
     # camera setup 
     ##############################################################################################
@@ -221,62 +233,79 @@ def main():
     cam.start()
     set_leds_task()
     stop_event = threading.Event()
-    try:
-        sender_socket = create_socket_sender()
-    except RuntimeError as e:
-        print(e); cam.close(); return
+    # ************** socket setup ****************
+    # try:
+    #     sender_socket = create_socket_sender()
+    # except RuntimeError as e:
+    #     print(e); cam.close(); return
+    # ********************************************
     # 初始化模型
     # model = TFLiteModel(config.TFLITE_MODEL_NAME)
     model = UNetSegmenter(config.PTH_MODEL_PATH)
+    
+    log_dir = "/home/pi/Documents/my-cam/auto_project/vision_socket_data"
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = os.path.join(log_dir, f"{timestamp}_log.txt")
+    os.makedirs(log_dir, exist_ok=True)
+
+    logging.basicConfig(
+        filename=log_file,
+        filemode='w',  # 每次執行覆蓋檔案
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+    )
     ##############################################################################################
     
-    infer_thread = threading.Thread(target=show_prediction_result, 
-                                    args=(cam, model, stop_event, sender_socket), 
-                                    daemon=True)
-    # infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event), daemon=True)
+    # infer_thread = threading.Thread(target=show_prediction_result, 
+    #                                 args=(cam, model, stop_event, sender_socket), 
+    #                                 daemon=True)
+    infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event), daemon=True)
     infer_thread.start()
-    base_count = 31
+    base_count = 45
     try:
         while not stop_event.is_set():
-            frame = cam.get_latest_frame()
-            if frame is None:
-                continue
+            #frame = cam.get_latest_frame()
+            #if frame is None:
+                #continue
 
             # # 顯示即時攝影機畫面（包含 FPS）
             # fps = cam.get_fps()
             # frame_with_fps = draw_fps(frame, fps)
             # cv2.imshow("Camera View", frame_with_fps)
             # cv2.imshow("Camera View", frame)
+            
             with mask_lock:
                 if shared_mask is not None:
                     predict_mask = cv2.cvtColor(shared_mask, cv2.COLOR_RGB2BGR)  # 轉換為 BGR 格式以便顯示
                     # ************************************* GUI ************************************ #
-                    cv2.imshow("Mask", predict_mask)
+                    # cv2.imshow("Mask", predict_mask)
                     # cv2.imshow("wire Mask", shared_wire_img)
                     # cv2.imshow("conn Mask", shared_conn_img)
                     # ******************************** save raw data ******************************* #
                     timestamp = datetime.datetime.now().strftime("%H%M%S")
+                    cv2.imwrite(os.path.join(sub_raw, f"{timestamp}_raw.png"), shared_raw_img)
                     cv2.imwrite(os.path.join(sub_conn, f"{timestamp}_conn.png"), shared_conn_img)
                     cv2.imwrite(os.path.join(sub_wire, f"{timestamp}_wire.png"), shared_wire_img)
                     cv2.imwrite(os.path.join(sub_all , f"{timestamp}_all.png"), predict_mask)
-                
+                    cv2.imshow("img", shared_raw_img)
                 else:
                     status_manager.update_and_print_status('wire_conn_img', 'missing', fail_msg="[!] 沒有回傳 shared_mask")
+                    time.sleep(0.05)
+                    continue
                         
             key = cv2.waitKey(1)
-            if key == 27:
+            if key == 1:
                 break
             elif key == ord('b'):
-                base_path = "./dataset/demo_test_1"
+                base_path = "./dataset/experiment/base"
                 img_name = os.path.join(base_path, f"img{base_count}.png")
-                frame = apply_perspective_transform(frame)
-                cv2.imwrite(img_name, frame)
+                cv2.imwrite(img_name, shared_raw_img)
                 base_count += 1
                 print(f"已儲存圖片結果：{img_name}")
     finally:
         stop_event.set()
         infer_thread.join()
-        sender_socket.close()
+        # sender_socket.close() # socket
         cv2.destroyAllWindows()
         cam.close()
         print("main process ends totally.")
