@@ -35,27 +35,27 @@ class PoseEstimation:
         ###################################################################################
         ###################################有線############################################
         ###################################################################################
-        # if self._find_center_from_wire():
-        #     conn_result = self._analyze_connector()
-        #     if conn_result:
-        #         self.result = conn_result
-        #         return self.result 
-        #     else:
-        #         return None
-        # else:
-        #     return None
+        if self._find_center_from_wire():
+            conn_result = self._analyze_connector()
+            if conn_result:
+                self.result = conn_result
+                return self.result 
+            else:
+                return None
+        else:
+            return None
        
         ###################################################################################
         ############################不檢查是否有線##########################################
         ###################################################################################
-        if self.user_center is not None:
-            a, b = self.user_center
-            conn_result = self.only_conn_pose(a, b)
-            if conn_result:
-                    self.result = conn_result
-                    return self.result 
-            else:
-                return None
+        # if self.user_center is not None:
+        #     a, b = self.user_center
+        #     conn_result = self.only_conn_pose(a, b)
+        #     if conn_result:
+        #             self.result = conn_result
+        #             return self.result 
+        #     else:
+        #         return None
         ###################################################################################
  
     def is_success(self):

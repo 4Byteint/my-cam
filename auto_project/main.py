@@ -118,7 +118,7 @@ def create_socket_sender(host='127.0.0.1', port=5005):
         raise RuntimeError(f"socket connect failed: {e}")
 
 
-def show_prediction_result(cam, model, stop_event): #sock
+def show_prediction_result(cam, model, stop_event, sock): #sock
     global shared_mask
     global shared_wire_img
     global shared_conn_img
@@ -160,13 +160,13 @@ def show_prediction_result(cam, model, stop_event): #sock
                     
                     
                     # socket send
-                    # try:
-                    #     safe_send(sock, f"{world_pos[0]:.2f},{world_pos[1]:.2f},{angle:.2f}\n")
+                    try:
+                        safe_send(sock, f"{world_pos[0]:.2f},{world_pos[1]:.2f},{angle:.2f}\n")
                         
-                    # except RuntimeError as e:
-                    #     print(f"[!] server ending, {e}")
-                    #     stop_event.set()
-                    #     break
+                    except RuntimeError as e:
+                        print(f"[!] server ending, {e}")
+                        stop_event.set()
+                        break
                             
                 #################################################################################
                 ############################ pose estimation failed #############################
@@ -178,13 +178,13 @@ def show_prediction_result(cam, model, stop_event): #sock
                         fail_msg="[!] pose estimation failed."
                     )
                     # socket send
-                    # message = "0,0,0\n"
-                    # try:
-                    #     safe_send(sock, message)
-                    # except RuntimeError as e:
-                    #     print(f"[!] server ending, {e}")
-                    #     stop_event.set()
-                    #     break
+                    message = "0,0,0\n"
+                    try:
+                        safe_send(sock, message)
+                    except RuntimeError as e:
+                        print(f"[!] server ending, {e}")
+                        stop_event.set()
+                        break
 
             #################################################################################
             # 儲存 wire_mask 和 connector_mask
@@ -206,12 +206,12 @@ def show_prediction_result(cam, model, stop_event): #sock
             
             message = "0,0,0\n"
             # socket send
-            # try:
-            #     safe_send(sock, message)
-            # except RuntimeError as e:
-            #     print(f"[!] server ending, {e}")
-            #     stop_event.set()
-            #     break
+            try:
+                safe_send(sock, message)
+            except RuntimeError as e:
+                print(f"[!] server ending, {e}")
+                stop_event.set()
+                break
            
                 
 
@@ -234,10 +234,10 @@ def main():
     set_leds_task()
     stop_event = threading.Event()
     # ************** socket setup ****************
-    # try:
-    #     sender_socket = create_socket_sender()
-    # except RuntimeError as e:
-    #     print(e); cam.close(); return
+    try:
+        sender_socket = create_socket_sender()
+    except RuntimeError as e:
+        print(e); cam.close(); return
     # ********************************************
     # 初始化模型
     # model = TFLiteModel(config.TFLITE_MODEL_NAME)
@@ -256,10 +256,10 @@ def main():
     )
     ##############################################################################################
     
-    # infer_thread = threading.Thread(target=show_prediction_result, 
-    #                                 args=(cam, model, stop_event, sender_socket), 
-    #                                 daemon=True)
-    infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event), daemon=True)
+    infer_thread = threading.Thread(target=show_prediction_result, 
+                                    args=(cam, model, stop_event, sender_socket), 
+                                    daemon=True)
+    # infer_thread = threading.Thread(target=show_prediction_result, args=(cam, model, stop_event), daemon=True)
     infer_thread.start()
     base_count = 45
     try:
@@ -290,7 +290,7 @@ def main():
                     cv2.imshow("img", shared_raw_img)
                 else:
                     status_manager.update_and_print_status('wire_conn_img', 'missing', fail_msg="[!] 沒有回傳 shared_mask")
-                    time.sleep(0.05)
+                    time.sleep(0.1)
                     continue
                         
             key = cv2.waitKey(1)
@@ -305,7 +305,7 @@ def main():
     finally:
         stop_event.set()
         infer_thread.join()
-        # sender_socket.close() # socket
+        sender_socket.close() # socket
         cv2.destroyAllWindows()
         cam.close()
         print("main process ends totally.")
